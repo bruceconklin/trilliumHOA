@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trillium Lane HOA — Mill Valley, CA</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #f9f7f4;
+      color: #2c2c2c;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #2d5a3d;
+      color: #fff;
+      padding: 3rem 2rem 2.5rem;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2.2rem;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.4rem;
+    }
+
+    header p {
+      font-size: 1.05rem;
+      opacity: 0.85;
+      font-style: italic;
+    }
+
+    nav {
+      background: #1e3f2b;
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      padding: 0.75rem 1rem;
+    }
+
+    nav a {
+      color: #cde8d6;
+      text-decoration: none;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    nav a:hover { color: #fff; }
+
+    main {
+      max-width: 800px;
+      margin: 3rem auto;
+      padding: 0 1.5rem;
+    }
+
+    section {
+      margin-bottom: 3rem;
+    }
+
+    section h2 {
+      font-size: 1.4rem;
+      color: #2d5a3d;
+      border-bottom: 2px solid #c8dfc e;
+      padding-bottom: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    section p {
+      margin-bottom: 1rem;
+    }
+
+    .dues-box {
+      background: #fff;
+      border: 1px solid #d4e6da;
+      border-left: 5px solid #2d5a3d;
+      border-radius: 4px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .dues-box h3 {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+      color: #1e3f2b;
+    }
+
+    .dues-box ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .dues-box ul li {
+      padding: 0.25rem 0;
+      font-size: 1rem;
+    }
+
+    .dues-box ul li::before {
+      content: "→ ";
+      color: #2d5a3d;
+      font-weight: bold;
+    }
+
+    .pay-button {
+      display: inline-block;
+      margin-top: 1rem;
+      background: #2d5a3d;
+      color: #fff;
+      padding: 0.75rem 2rem;
+      border-radius: 4px;
+      text-decoration: none;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 0.95rem;
+      letter-spacing: 0.03em;
+    }
+
+    .pay-button:hover { background: #1e3f2b; }
+
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .board-member {
+      background: #fff;
+      border: 1px solid #d4e6da;
+      border-radius: 4px;
+      padding: 1rem 1.25rem;
+    }
+
+    .board-member .name {
+      font-weight: bold;
+      color: #1e3f2b;
+    }
+
+    .board-member .role {
+      font-size: 0.85rem;
+      color: #666;
+      font-style: italic;
+    }
+
+    .contact-line {
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+
+    .contact-line a {
+      color: #2d5a3d;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.8rem;
+      color: #888;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      border-top: 1px solid #e0e0e0;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Trillium Lane HOA</h1>
+  <p>Caring for the Meadow — Mill Valley, CA</p>
+</header>
+
+<nav>
+  <a href="#about">About</a>
+  <a href="#dues">Dues</a>
+  <a href="#board">Board</a>
+  <a href="#contact">Contact</a>
+</nav>
+
+<main>
+
+  <section id="about">
+    <h2>About Us</h2>
+    <p>
+      The Trillium Lane Homeowners Association exists for one purpose: caring for our shared
+      park, the Meadow. Membership is optional and open to all households on Trillium Lane.
+    </p>
+    <p>
+      The HOA has served the neighborhood since 1971 as a nonprofit mutual benefit corporation
+      registered in California. Annual dues cover the Meadow's property tax, insurance, and
+      routine upkeep — mowing, gardening, and minor repairs — so it stays beautiful and open
+      for everyone to enjoy.
+    </p>
+  </section>
+
+  <section id="dues">
+    <h2>Annual Dues</h2>
+    <p>
+      Dues are collected once a year and go entirely toward maintaining the Meadow.
+      Every household that joins helps keep this shared space healthy.
+    </p>
+
+    <div class="dues-box">
+      <h3>2026 Dues — $250 per household</h3>
+      <ul>
+        <li>Property tax on the Meadow</li>
+        <li>Liability insurance</li>
+        <li>Mowing &amp; landscaping</li>
+        <li>Minor repairs and upkeep</li>
+      </ul>
+      <!-- Replace the href below with your Stripe Payment Link once created -->
+      <a class="pay-button" href="#contact">Pay Online — Coming Soon</a>
+    </div>
+
+    <p>
+      Prefer to pay by check or Venmo? Reach out to any board member listed below
+      and we'll make it easy. Receipts available on request.
+    </p>
+  </section>
+
+  <section id="board">
+    <h2>2026 Board</h2>
+    <p>The HOA is run entirely by volunteer neighbors. We welcome new voices — the time
+    commitment is light and it's a great way to shape what happens in the Meadow.</p>
+
+    <div class="board-grid">
+      <div class="board-member">
+        <div class="name">Bruce Conklin</div>
+        <div class="role">President</div>
+      </div>
+      <div class="board-member">
+        <div class="name">Adrienne Donley</div>
+        <div class="role">Treasurer</div>
+      </div>
+      <div class="board-member">
+        <div class="name">Debbie Piattelli</div>
+        <div class="role">Secretary</div>
+      </div>
+      <div class="board-member">
+        <div class="name">Kevin Ritchie</div>
+        <div class="role">At-large</div>
+      </div>
+      <div class="board-member">
+        <div class="name">Mike Pile</div>
+        <div class="role">At-large</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <h2>Contact</h2>
+    <p>Questions about the HOA, dues, or the Meadow? Reach out to the board.</p>
+    <p class="contact-line">
+      Email: <a href="mailto:me@bruceconklin.com">me@bruceconklin.com</a>
+    </p>
+    <p class="contact-line">
+      Address: Trillium Lane, Mill Valley, CA 94941
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  &copy; 2026 Trillium Lane Homeowners Association &mdash; Mill Valley, CA &mdash; Est. 1971
+</footer>
+
+</body>
+</html>
