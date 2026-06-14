@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Trillium Lane HOA</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #f0f7f3;
+      color: #2c2c2c;
+      line-height: 1.6;
+    }
+
+    header {
+      background: #2d5a3d;
+      color: #fff;
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    header h1 { font-size: 1.3rem; }
+    header a { color: #cde8d6; text-decoration: none; font-size: 0.85rem; }
+    header a:hover { color: #fff; }
+
+    /* Access denied screen */
+    #access-denied {
+      display: none;
+      max-width: 500px;
+      margin: 4rem auto;
+      text-align: center;
+      padding: 2rem;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #f5c6c6;
+    }
+
+    #access-denied h2 { color: #c0392b; margin-bottom: 0.75rem; }
+    #access-denied p { color: #666; }
+
+    #app { display: none; }
+
+    main { max-width: 1000px; margin: 2rem auto; padding: 0 1.5rem; }
+
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+      background: #fff;
+      border: 1px solid #d4e6da;
+      border-radius: 4px 4px 0 0;
+      padding: 0.6rem 1.5rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: #555;
+      font-family: inherit;
+    }
+
+    .tab-btn.active { background: #2d5a3d; color: #fff; border-color: #2d5a3d; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .card {
+      background: #fff;
+      border: 1px solid #d4e6da;
+      border-radius: 6px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card h2 {
+      font-size: 0.85rem;
+      color: #1e3f2b;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+
+    th {
+      background: #f0f7f3;
+      color: #1e3f2b;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    td { padding: 0.6rem 0.75rem; border-top: 1px solid #eee; vertical-align: middle; }
+    tr:hover td { background: #fafff8; }
+
+    .btn {
+      display: inline-block;
+      padding: 0.4rem 0.9rem;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-family: inherit;
+    }
+
+    .btn-primary { background: #2d5a3d; color: #fff; }
+    .btn-primary:hover { background: #1e3f2b; }
+    .btn-danger { background: #e74c3c; color: #fff; }
+    .btn-danger:hover { background: #c0392b; }
+    .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+    .btn-secondary { background: #eee; color: #333; }
+    .btn-secondary:hover { background: #ddd; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    label { display: block; font-size: 0.78rem; color: #666; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="number"],
+    input[type="url"],
+    select {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus { outline: 2px solid #2d5a3d; border-color: #2d5a3d; }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .checkbox-row input[type="checkbox"] { width: auto; cursor: pointer; transform: scale(1.2); accent-color: #2d5a3d; }
+    .checkbox-row label { margin: 0; cursor: pointer; text-transform: none; font-size: 0.9rem; letter-spacing: 0; }
+
+    .action-bar { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.78rem; }
+    .badge-current { background: #d4f4e0; color: #1a5c33; }
+    .badge-past-due { background: #fde8e8; color: #c0392b; }
+    .badge-admin { background: #e8d4f4; color: #5b1a8c; }
+
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: #2d5a3d;
+      color: #fff;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      display: none;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .toast.error { background: #e74c3c; }
+    .toast.show { display: block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>HOA Admin Panel</h1>
+  <a href="/members/">&larr; Back to Member Portal</a>
+  <a href="/">Public Site</a>
+</header>
+
+<!-- Shown if not admin -->
+<div id="access-denied">
+  <h2>Access Denied</h2>
+  <p>You don't have admin access. Contact the board president if you believe this is an error.</p>
+  <br>
+  <a href="/members/" style="color:#2d5a3d">← Back to Member Portal</a>
+</div>
+
+<!-- Shown if admin -->
+<div id="app">
+  <main>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="members">Members</button>
+      <button class="tab-btn" data-tab="newsletters">Newsletters</button>
+      <button class="tab-btn" data-tab="budget">Budget</button>
+    </div>
+
+    <!-- ===== MEMBERS TAB ===== -->
+    <div class="tab-panel active" id="tab-members">
+      <div class="card">
+        <h2 id="member-form-title">Add New Member</h2>
+        <input type="hidden" id="edit-index" value="" />
+        <div class="form-grid">
+          <div>
+            <label>Full Name *</label>
+            <input type="text" id="m-name" placeholder="Jane Smith" />
+          </div>
+          <div>
+            <label>Email *</label>
+            <input type="email" id="m-email" placeholder="jane@example.com" />
+          </div>
+          <div>
+            <label>Address</label>
+            <input type="text" id="m-address" placeholder="1020 Trillium Ln" />
+          </div>
+          <div>
+            <label>Phone</label>
+            <input type="tel" id="m-phone" placeholder="415-555-1234" />
+          </div>
+          <div>
+            <label>Payment Status</label>
+            <select id="m-status">
+              <option value="current">Current</option>
+              <option value="past_due">Past Due</option>
+            </select>
+          </div>
+          <div>
+            <label>Payment Method</label>
+            <select id="m-method">
+              <option value="check">Check</option>
+              <option value="autopay_annual">Auto-pay — Annual</option>
+              <option value="autopay_monthly">Auto-pay — Monthly</option>
+            </select>
+          </div>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="m-is-admin" />
+          <label for="m-is-admin">Admin — can access this admin panel and manage members, newsletters, and budget</label>
+        </div>
+        <div class="action-bar">
+          <button class="btn btn-secondary" onclick="clearMemberForm()">Clear</button>
+          <button class="btn btn-primary" onclick="saveMember()">Save Member</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>All Members</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Address</th>
+              <th>Phone</th>
+              <th>Dues Status</th>
+              <th>Payment Method</th>
+              <th>Role</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="members-tbody">
+            <tr><td colspan="8" style="color:#888">Loading…</td></tr>
+          </tbody>
+        </table>
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="saveAllMembers()">&#10003; Save All Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== NEWSLETTERS TAB ===== -->
+    <div class="tab-panel" id="tab-newsletters">
+      <div class="card">
+        <h2>Add Newsletter</h2>
+        <div class="form-grid">
+          <div>
+            <label>Year *</label>
+            <input type="number" id="nl-year" placeholder="2026" min="2000" max="2099" />
+          </div>
+          <div>
+            <label>Title *</label>
+            <input type="text" id="nl-title" placeholder="2026 Annual Newsletter" />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label>PDF Link * — paste a shareable link from Google Drive, Dropbox, or similar</label>
+            <input type="url" id="nl-url" placeholder="https://drive.google.com/file/d/…" />
+          </div>
+        </div>
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="addNewsletter()">Add Newsletter</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Past Newsletters</h2>
+        <table>
+          <thead>
+            <tr><th>Year</th><th>Title</th><th>Link</th><th></th></tr>
+          </thead>
+          <tbody id="nl-tbody">
+            <tr><td colspan="4" style="color:#888">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== BUDGET TAB ===== -->
+    <div class="tab-panel" id="tab-budget">
+      <div class="card">
+        <h2>Add Budget Line</h2>
+        <div class="form-grid">
+          <div>
+            <label>Year *</label>
+            <input type="number" id="b-year" placeholder="2026" min="2000" max="2099" />
+          </div>
+          <div>
+            <label>Category *</label>
+            <input type="text" id="b-category" placeholder="Property Tax" />
+          </div>
+          <div>
+            <label>Budgeted ($)</label>
+            <input type="number" id="b-budgeted" placeholder="0" min="0" />
+          </div>
+          <div>
+            <label>Actual ($)</label>
+            <input type="number" id="b-actual" placeholder="0" min="0" />
+          </div>
+        </div>
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="addBudgetLine()">Add Line</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Budget Lines</h2>
+        <table>
+          <thead>
+            <tr><th>Year</th><th>Category</th><th>Budgeted ($)</th><th>Actual ($)</th><th></th></tr>
+          </thead>
+          <tbody id="budget-tbody">
+            <tr><td colspan="5" style="color:#888">Loading…</td></tr>
+          </tbody>
+        </table>
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="saveAllBudget()">&#10003; Save Budget</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let members = [], newsletters = [], budget = [];
+
+  // ---- Tabs ----
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---- Toast ----
+  function showToast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isError ? ' error' : '');
+    setTimeout(() => t.className = 'toast', 3000);
+  }
+
+  // ---- Helpers ----
+  const methodLabel = { check: 'Check', autopay_annual: 'Auto-pay Annual', autopay_monthly: 'Auto-pay Monthly' };
+
+  // ======== MEMBERS ========
+
+  function renderMembers() {
+    const tbody = document.getElementById('members-tbody');
+    if (members.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="color:#888">No members yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = members.map((m, i) => `
+      <tr>
+        <td>${m.name}</td>
+        <td>${m.email}</td>
+        <td>${m.address || '—'}</td>
+        <td>${m.phone || '—'}</td>
+        <td>${m.payment_status === 'current'
+          ? '<span class="badge badge-current">Current</span>'
+          : '<span class="badge badge-past-due">Past Due</span>'}</td>
+        <td>${methodLabel[m.payment_method] || m.payment_method || '—'}</td>
+        <td>${m.is_admin ? '<span class="badge badge-admin">Admin</span>' : '—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-secondary btn-sm" onclick="editMember(${i})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteMember(${i})">Remove</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function editMember(i) {
+    const m = members[i];
+    document.getElementById('edit-index').value = i;
+    document.getElementById('member-form-title').textContent = 'Edit Member';
+    document.getElementById('m-name').value = m.name || '';
+    document.getElementById('m-email').value = m.email || '';
+    document.getElementById('m-address').value = m.address || '';
+    document.getElementById('m-phone').value = m.phone || '';
+    document.getElementById('m-status').value = m.payment_status || 'current';
+    document.getElementById('m-method').value = m.payment_method || 'check';
+    document.getElementById('m-is-admin').checked = m.is_admin === true;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function deleteMember(i) {
+    if (!confirm('Remove ' + members[i].name + ' from the HOA? This cannot be undone.')) return;
+    members.splice(i, 1);
+    renderMembers();
+    showToast('Member removed — click Save All Changes to persist.');
+  }
+
+  function clearMemberForm() {
+    document.getElementById('edit-index').value = '';
+    document.getElementById('member-form-title').textContent = 'Add New Member';
+    ['m-name','m-email','m-address','m-phone'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('m-status').value = 'current';
+    document.getElementById('m-method').value = 'check';
+    document.getElementById('m-is-admin').checked = false;
+  }
+
+  function saveMember() {
+    const name = document.getElementById('m-name').value.trim();
+    const email = document.getElementById('m-email').value.trim();
+    if (!name || !email) { showToast('Name and email are required.', true); return; }
+
+    const member = {
+      name,
+      email,
+      address: document.getElementById('m-address').value.trim(),
+      phone: document.getElementById('m-phone').value.trim(),
+      payment_status: document.getElementById('m-status').value,
+      payment_method: document.getElementById('m-method').value,
+      is_admin: document.getElementById('m-is-admin').checked,
+    };
+
+    const idx = document.getElementById('edit-index').value;
+    if (idx !== '') {
+      members[parseInt(idx)] = member;
+    } else {
+      // Check for duplicate email
+      if (members.some(m => m.email.toLowerCase() === email.toLowerCase())) {
+        showToast('A member with that email already exists.', true);
+        return;
+      }
+      members.push(member);
+    }
+    renderMembers();
+    clearMemberForm();
+    showToast('Member saved — click Save All Changes to persist.');
+  }
+
+  async function saveAllMembers() {
+    try {
+      const res = await fetch('/api/admin/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(members),
+      });
+      if (res.ok) showToast('Members saved!');
+      else showToast('Error saving. Are you still logged in?', true);
+    } catch (e) {
+      showToast('Network error.', true);
+    }
+  }
+
+  // ======== NEWSLETTERS ========
+
+  function renderNewsletters() {
+    const tbody = document.getElementById('nl-tbody');
+    if (newsletters.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:#888">No newsletters yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = [...newsletters].sort((a, b) => b.year - a.year).map((n, i) => `
+      <tr>
+        <td>${n.year}</td>
+        <td>${n.title}</td>
+        <td><a href="${n.url}" target="_blank" style="color:#2d5a3d">View PDF ↗</a></td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteNewsletter(${i})">Delete</button></td>
+      </tr>
+    `).join('');
+  }
+
+  function deleteNewsletter(i) {
+    if (!confirm('Delete this newsletter?')) return;
+    newsletters.splice(i, 1);
+    renderNewsletters();
+    saveAllNewsletters();
+  }
+
+  async function addNewsletter() {
+    const year = document.getElementById('nl-year').value.trim();
+    const title = document.getElementById('nl-title').value.trim();
+    const url = document.getElementById('nl-url').value.trim();
+    if (!year || !title || !url) { showToast('All fields are required.', true); return; }
+    newsletters.push({ year: parseInt(year), title, url });
+    renderNewsletters();
+    await saveAllNewsletters();
+    ['nl-year','nl-title','nl-url'].forEach(id => document.getElementById(id).value = '');
+  }
+
+  async function saveAllNewsletters() {
+    try {
+      const res = await fetch('/api/admin/newsletters', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newsletters),
+      });
+      if (res.ok) showToast('Newsletters saved!');
+      else showToast('Error saving newsletters.', true);
+    } catch (e) {
+      showToast('Network error.', true);
+    }
+  }
+
+  // ======== BUDGET ========
+
+  function renderBudget() {
+    const tbody = document.getElementById('budget-tbody');
+    if (budget.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#888">No budget lines yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = budget.map((b, i) => `
+      <tr>
+        <td>${b.year}</td>
+        <td><input type="text" value="${b.category}" onchange="budget[${i}].category=this.value"
+          style="width:100%;border:1px solid #ddd;padding:0.3rem;border-radius:3px" /></td>
+        <td><input type="number" value="${b.budgeted || 0}" onchange="budget[${i}].budgeted=parseFloat(this.value)||0"
+          style="width:90px;border:1px solid #ddd;padding:0.3rem;border-radius:3px" /></td>
+        <td><input type="number" value="${b.actual || 0}" onchange="budget[${i}].actual=parseFloat(this.value)||0"
+          style="width:90px;border:1px solid #ddd;padding:0.3rem;border-radius:3px" /></td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteBudgetLine(${i})">Delete</button></td>
+      </tr>
+    `).join('');
+  }
+
+  function deleteBudgetLine(i) {
+    if (!confirm('Delete this line?')) return;
+    budget.splice(i, 1);
+    renderBudget();
+    showToast('Line deleted — click Save Budget to persist.');
+  }
+
+  function addBudgetLine() {
+    const year = document.getElementById('b-year').value.trim();
+    const category = document.getElementById('b-category').value.trim();
+    if (!year || !category) { showToast('Year and category are required.', true); return; }
+    budget.push({
+      year: parseInt(year),
+      category,
+      budgeted: parseFloat(document.getElementById('b-budgeted').value) || 0,
+      actual: parseFloat(document.getElementById('b-actual').value) || 0,
+    });
+    renderBudget();
+    showToast('Line added — click Save Budget to persist.');
+    ['b-year','b-category','b-budgeted','b-actual'].forEach(id => document.getElementById(id).value = '');
+  }
+
+  async function saveAllBudget() {
+    try {
+      const res = await fetch('/api/admin/budget', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(budget),
+      });
+      if (res.ok) showToast('Budget saved!');
+      else showToast('Error saving budget.', true);
+    } catch (e) {
+      showToast('Network error.', true);
+    }
+  }
+
+  // ======== INIT ========
+  async function init() {
+    // Check admin access first
+    try {
+      const meRes = await fetch('/api/me');
+      if (meRes.ok) {
+        const me = await meRes.json();
+        if (!me.is_admin) {
+          document.getElementById('access-denied').style.display = 'block';
+          return;
+        }
+      } else if (meRes.status === 404) {
+        // Not in members list — check if superadmin via trying an admin endpoint
+        const testRes = await fetch('/api/admin/members');
+        if (!testRes.ok) {
+          document.getElementById('access-denied').style.display = 'block';
+          return;
+        }
+      }
+    } catch (e) {
+      document.getElementById('access-denied').style.display = 'block';
+      return;
+    }
+
+    document.getElementById('app').style.display = 'block';
+
+    try {
+      const [mRes, nRes, bRes] = await Promise.all([
+        fetch('/api/admin/members'),
+        fetch('/api/admin/newsletters'),
+        fetch('/api/admin/budget'),
+      ]);
+      if (mRes.ok) members = await mRes.json();
+      if (nRes.ok) newsletters = await nRes.json();
+      if (bRes.ok) budget = await bRes.json();
+    } catch (e) {
+      showToast('Could not load data.', true);
+    }
+
+    renderMembers();
+    renderNewsletters();
+    renderBudget();
+  }
+
+  init();
+</script>
+</body>
+</html>

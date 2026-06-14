@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Members Portal — Trillium Lane HOA</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #f9f7f4;
+      color: #2c2c2c;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #2d5a3d;
+      color: #fff;
+      padding: 3rem 2rem 2.5rem;
+      text-align: center;
+    }
+
+    header h1 { font-size: 2.2rem; letter-spacing: 0.02em; margin-bottom: 0.4rem; }
+    header p { font-size: 1.05rem; opacity: 0.85; font-style: italic; }
+
+    nav {
+      background: #1e3f2b;
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      padding: 0.75rem 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    nav a {
+      color: #cde8d6;
+      text-decoration: none;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    nav a:hover { color: #fff; }
+    nav a.active { color: #fff; font-weight: bold; }
+
+    .admin-nav-link {
+      background: rgba(255,255,255,0.15);
+      padding: 0.3rem 0.85rem;
+      border-radius: 4px;
+      display: none; /* shown by JS if is_admin */
+    }
+
+    .admin-nav-link:hover { background: rgba(255,255,255,0.25); }
+
+    main {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+
+    h2.page-title {
+      font-size: 1.6rem;
+      color: #2d5a3d;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Payment status card */
+    .status-card {
+      background: #fff;
+      border: 1px solid #d4e6da;
+      border-left: 5px solid #2d5a3d;
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      display: flex;
+      gap: 2.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .status-item { flex: 1; min-width: 140px; }
+
+    .status-label {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #888;
+      margin-bottom: 0.25rem;
+    }
+
+    .status-value { font-size: 1.05rem; font-weight: bold; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.7rem;
+      border-radius: 20px;
+      font-size: 0.88rem;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    .badge-current { background: #d4f4e0; color: #1a5c33; }
+    .badge-past-due { background: #fde8e8; color: #c0392b; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #d4e6da;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 0.7rem 1.4rem;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+    }
+
+    .tab-btn:hover { color: #2d5a3d; }
+    .tab-btn.active { color: #2d5a3d; border-bottom-color: #2d5a3d; font-weight: bold; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Profile edit form */
+    .profile-section {
+      background: #fff;
+      border: 1px solid #d4e6da;
+      border-radius: 6px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .profile-section h3 {
+      font-size: 1rem;
+      color: #1e3f2b;
+      margin-bottom: 1rem;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-field label {
+      display: block;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 0.78rem;
+      color: #666;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-field input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      font-family: Georgia, serif;
+    }
+
+    .form-field input:focus { outline: 2px solid #2d5a3d; border-color: #2d5a3d; }
+    .form-field input[readonly] { background: #f5f5f5; color: #888; cursor: not-allowed; }
+
+    .form-note {
+      font-size: 0.8rem;
+      color: #999;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      margin-top: 0.25rem;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 0.5rem 1.25rem;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 0.9rem;
+    }
+
+    .btn-primary { background: #2d5a3d; color: #fff; }
+    .btn-primary:hover { background: #1e3f2b; }
+    .btn-secondary { background: #eee; color: #333; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+      background: #fff;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    th {
+      background: #f0f7f3;
+      color: #1e3f2b;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.7rem 1rem;
+      text-align: left;
+    }
+
+    td { padding: 0.7rem 1rem; border-top: 1px solid #eee; vertical-align: top; }
+    tr:hover td { background: #fafff8; }
+
+    /* Newsletter list */
+    .newsletter-list { list-style: none; }
+
+    .newsletter-list li {
+      background: #fff;
+      border: 1px solid #d4e6da;
+      border-radius: 4px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .newsletter-list a {
+      color: #2d5a3d;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    .newsletter-list a:hover { text-decoration: underline; }
+    .newsletter-year { font-size: 0.85rem; color: #888; font-family: 'Helvetica Neue', Arial, sans-serif; }
+
+    /* Budget */
+    .budget-total td { font-weight: bold; background: #f0f7f3 !important; }
+    .over-budget { color: #c0392b; }
+    .under-budget { color: #1a5c33; }
+
+    /* Misc */
+    .loading { color: #888; font-style: italic; padding: 1rem 0; }
+    .error-msg { color: #c0392b; padding: 1rem; background: #fde8e8; border-radius: 4px; margin-bottom: 1rem; }
+    .success-msg { color: #1a5c33; padding: 0.75rem 1rem; background: #d4f4e0; border-radius: 4px; margin-top: 0.75rem; display: none; }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.8rem;
+      color: #888;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      border-top: 1px solid #e0e0e0;
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Trillium Lane HOA</h1>
+  <p>Member Portal — Mill Valley, CA</p>
+</header>
+
+<nav>
+  <a href="/">Home</a>
+  <a href="/#dues">Dues</a>
+  <a href="/#board">Board</a>
+  <a href="/members/" class="active">Members</a>
+  <a href="/#contact">Contact</a>
+  <a href="/admin/" class="admin-nav-link" id="admin-link">Admin Panel</a>
+</nav>
+
+<main>
+  <h2 class="page-title" id="greeting">Member Portal</h2>
+
+  <!-- Payment status card — always visible -->
+  <div class="status-card" id="status-card">
+    <div class="status-item">
+      <div class="status-label">2026 Dues Status</div>
+      <div class="status-value" id="payment-status"><span class="loading">Loading…</span></div>
+    </div>
+    <div class="status-item">
+      <div class="status-label">Payment Method</div>
+      <div class="status-value" id="payment-method"><span class="loading">Loading…</span></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="account">My Account</button>
+    <button class="tab-btn" data-tab="directory">Directory</button>
+    <button class="tab-btn" data-tab="newsletters">Newsletters</button>
+    <button class="tab-btn" data-tab="budget">Budget</button>
+  </div>
+
+  <!-- ===== MY ACCOUNT TAB ===== -->
+  <div class="tab-panel active" id="tab-account">
+    <div class="profile-section">
+      <h3>Edit Your Profile</h3>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Full Name</label>
+          <input type="text" id="p-name" placeholder="Your name" />
+        </div>
+        <div class="form-field">
+          <label>Email</label>
+          <input type="email" id="p-email" readonly />
+          <p class="form-note">Email is your login and cannot be changed here. Contact the board to update it.</p>
+        </div>
+        <div class="form-field">
+          <label>Address</label>
+          <input type="text" id="p-address" placeholder="1020 Trillium Ln" />
+        </div>
+        <div class="form-field">
+          <label>Phone</label>
+          <input type="tel" id="p-phone" placeholder="415-555-1234" />
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveProfile()">Save Changes</button>
+      <div class="success-msg" id="profile-success">Profile updated!</div>
+    </div>
+  </div>
+
+  <!-- ===== DIRECTORY TAB ===== -->
+  <div class="tab-panel" id="tab-directory">
+    <p id="dir-loading" class="loading">Loading directory…</p>
+    <table id="dir-table" style="display:none">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Address</th>
+          <th>Phone</th>
+          <th>Email</th>
+        </tr>
+      </thead>
+      <tbody id="dir-body"></tbody>
+    </table>
+  </div>
+
+  <!-- ===== NEWSLETTERS TAB ===== -->
+  <div class="tab-panel" id="tab-newsletters">
+    <p id="nl-loading" class="loading">Loading newsletters…</p>
+    <ul class="newsletter-list" id="nl-list" style="display:none"></ul>
+    <p id="nl-empty" style="display:none; color:#888;">No newsletters posted yet.</p>
+  </div>
+
+  <!-- ===== BUDGET TAB ===== -->
+  <div class="tab-panel" id="tab-budget">
+    <p id="budget-loading" class="loading">Loading budget…</p>
+    <table id="budget-table" style="display:none">
+      <thead>
+        <tr>
+          <th>Year</th>
+          <th>Category</th>
+          <th>Budgeted</th>
+          <th>Actual</th>
+          <th>Variance</th>
+        </tr>
+      </thead>
+      <tbody id="budget-body"></tbody>
+    </table>
+    <p id="budget-empty" style="display:none; color:#888;">No budget data posted yet.</p>
+  </div>
+</main>
+
+<footer>
+  &copy; 2026 Trillium Lane Homeowners Association &mdash; Mill Valley, CA
+</footer>
+
+<script>
+  // ---- Tabs ----
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---- Formatters ----
+  const fmt = {
+    paymentStatus(s) {
+      if (s === 'current') return '<span class="badge badge-current">Current</span>';
+      if (s === 'past_due') return '<span class="badge badge-past-due">Past Due</span>';
+      return s || '—';
+    },
+    paymentMethod(m) {
+      const map = { check: 'Check', autopay_annual: 'Auto-pay — Annual', autopay_monthly: 'Auto-pay — Monthly' };
+      return map[m] || m || '—';
+    },
+    currency(n) {
+      return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0 });
+    }
+  };
+
+  // ---- Profile save ----
+  async function saveProfile() {
+    const body = {
+      name: document.getElementById('p-name').value.trim(),
+      address: document.getElementById('p-address').value.trim(),
+      phone: document.getElementById('p-phone').value.trim(),
+    };
+
+    if (!body.name) { alert('Name is required.'); return; }
+
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const el = document.getElementById('profile-success');
+        el.style.display = 'block';
+        setTimeout(() => el.style.display = 'none', 3000);
+      } else {
+        alert('Could not save profile. Please try again.');
+      }
+    } catch (e) {
+      alert('Network error. Please try again.');
+    }
+  }
+
+  // ---- Load all data ----
+  async function load() {
+    // My account
+    try {
+      const res = await fetch('/api/me');
+      if (res.ok) {
+        const me = await res.json();
+        document.getElementById('greeting').textContent = 'Welcome, ' + me.name;
+        document.getElementById('payment-status').innerHTML = fmt.paymentStatus(me.payment_status);
+        document.getElementById('payment-method').textContent = fmt.paymentMethod(me.payment_method);
+        // Pre-fill profile form
+        document.getElementById('p-name').value = me.name || '';
+        document.getElementById('p-email').value = me.email || '';
+        document.getElementById('p-address').value = me.address || '';
+        document.getElementById('p-phone').value = me.phone || '';
+        // Show admin link if admin
+        if (me.is_admin) {
+          document.getElementById('admin-link').style.display = 'inline-block';
+        }
+      } else if (res.status === 404) {
+        document.getElementById('greeting').textContent = 'Welcome';
+        document.getElementById('status-card').innerHTML =
+          '<p class="error-msg">Your account hasn\'t been set up yet. Please contact <a href="mailto:me@bruceconklin.com">the board</a>.</p>';
+      }
+    } catch (e) {
+      document.getElementById('payment-status').textContent = 'Unable to load';
+    }
+
+    // Directory
+    try {
+      const res = await fetch('/api/members');
+      if (res.ok) {
+        const members = await res.json();
+        const tbody = document.getElementById('dir-body');
+        members.sort((a, b) => a.name.localeCompare(b.name)).forEach(m => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${m.name || '—'}</td>
+            <td>${m.address || '—'}</td>
+            <td>${m.phone || '—'}</td>
+            <td><a href="mailto:${m.email}">${m.email || '—'}</a></td>
+          `;
+          tbody.appendChild(tr);
+        });
+        document.getElementById('dir-loading').style.display = 'none';
+        document.getElementById('dir-table').style.display = 'table';
+      }
+    } catch (e) {
+      document.getElementById('dir-loading').textContent = 'Could not load directory.';
+    }
+
+    // Newsletters
+    try {
+      const res = await fetch('/api/newsletters');
+      if (res.ok) {
+        const newsletters = await res.json();
+        document.getElementById('nl-loading').style.display = 'none';
+        if (newsletters.length === 0) {
+          document.getElementById('nl-empty').style.display = 'block';
+        } else {
+          const ul = document.getElementById('nl-list');
+          newsletters.sort((a, b) => b.year - a.year).forEach(n => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+              <div><a href="${n.url}" target="_blank">${n.title}</a></div>
+              <span class="newsletter-year">${n.year}</span>
+            `;
+            ul.appendChild(li);
+          });
+          ul.style.display = 'block';
+        }
+      }
+    } catch (e) {
+      document.getElementById('nl-loading').textContent = 'Could not load newsletters.';
+    }
+
+    // Budget
+    try {
+      const res = await fetch('/api/budget');
+      if (res.ok) {
+        const budget = await res.json();
+        document.getElementById('budget-loading').style.display = 'none';
+        if (budget.length === 0) {
+          document.getElementById('budget-empty').style.display = 'block';
+        } else {
+          const tbody = document.getElementById('budget-body');
+          let totalBudgeted = 0, totalActual = 0;
+          budget.forEach(item => {
+            const variance = (item.actual || 0) - (item.budgeted || 0);
+            const varClass = variance > 0 ? 'over-budget' : variance < 0 ? 'under-budget' : '';
+            const varStr = variance === 0 ? '—' : (variance > 0 ? '+' : '') + fmt.currency(variance);
+            totalBudgeted += Number(item.budgeted || 0);
+            totalActual += Number(item.actual || 0);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${item.year}</td>
+              <td>${item.category}</td>
+              <td>${fmt.currency(item.budgeted)}</td>
+              <td>${fmt.currency(item.actual)}</td>
+              <td class="${varClass}">${varStr}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+          const totalVariance = totalActual - totalBudgeted;
+          const totalVarClass = totalVariance > 0 ? 'over-budget' : totalVariance < 0 ? 'under-budget' : '';
+          const totalVarStr = totalVariance === 0 ? '—' : (totalVariance > 0 ? '+' : '') + fmt.currency(totalVariance);
+          const totalRow = document.createElement('tr');
+          totalRow.className = 'budget-total';
+          totalRow.innerHTML = `
+            <td></td><td>Total</td>
+            <td>${fmt.currency(totalBudgeted)}</td>
+            <td>${fmt.currency(totalActual)}</td>
+            <td class="${totalVarClass}">${totalVarStr}</td>
+          `;
+          tbody.appendChild(totalRow);
+          document.getElementById('budget-table').style.display = 'table';
+        }
+      }
+    } catch (e) {
+      document.getElementById('budget-loading').textContent = 'Could not load budget.';
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>
