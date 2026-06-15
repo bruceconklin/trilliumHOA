@@ -448,11 +448,49 @@
         const el = document.getElementById('profile-success');
         el.style.display = 'block';
         setTimeout(() => el.style.display = 'none', 3000);
+        // Refresh greeting and directory to reflect name/address changes
+        document.getElementById('greeting').textContent = 'Welcome, ' + body.name;
+        loadDirectory();
       } else {
         alert('Could not save profile. Please try again.');
       }
     } catch (e) {
       alert('Network error. Please try again.');
+    }
+  }
+
+  // ---- Directory loader (standalone so it can be refreshed after profile changes) ----
+  async function loadDirectory() {
+    try {
+      const res = await fetch('/api/members');
+      if (res.ok) {
+        const members = await res.json();
+        const tbody = document.getElementById('dir-body');
+        tbody.innerHTML = ''; // clear before re-render
+        if (members.length === 0) {
+          document.getElementById('dir-loading').style.display = 'block';
+          document.getElementById('dir-loading').textContent = 'No members have chosen to share their contact info yet.';
+          document.getElementById('dir-table').style.display = 'none';
+        } else {
+          members.sort((a, b) => a.name.localeCompare(b.name)).forEach(m => {
+            const tr = document.createElement('tr');
+            const hiddenBadge = m.hidden_from_directory
+              ? ' <span style="font-size:0.72rem;background:#f0e6f4;color:#7a3fa0;padding:0.1rem 0.4rem;border-radius:10px;vertical-align:middle;">hidden</span>'
+              : '';
+            tr.innerHTML = `
+              <td>${m.name || '—'}${hiddenBadge}</td>
+              <td>${m.address || '—'}</td>
+              <td>${m.phone || '—'}</td>
+              <td><a href="mailto:${m.email}">${m.email || '—'}</a></td>
+            `;
+            tbody.appendChild(tr);
+          });
+          document.getElementById('dir-loading').style.display = 'none';
+          document.getElementById('dir-table').style.display = 'table';
+        }
+      }
+    } catch (e) {
+      document.getElementById('dir-loading').textContent = 'Could not load directory.';
     }
   }
 
@@ -493,34 +531,7 @@
     }
 
     // Directory
-    try {
-      const res = await fetch('/api/members');
-      if (res.ok) {
-        const members = await res.json();
-        const tbody = document.getElementById('dir-body');
-        if (members.length === 0) {
-          document.getElementById('dir-loading').textContent = 'No members have chosen to share their contact info yet.';
-        } else {
-          members.sort((a, b) => a.name.localeCompare(b.name)).forEach(m => {
-            const tr = document.createElement('tr');
-            const hiddenBadge = m.hidden_from_directory
-              ? ' <span style="font-size:0.72rem;background:#f0e6f4;color:#7a3fa0;padding:0.1rem 0.4rem;border-radius:10px;vertical-align:middle;">hidden</span>'
-              : '';
-            tr.innerHTML = `
-              <td>${m.name || '—'}${hiddenBadge}</td>
-              <td>${m.address || '—'}</td>
-              <td>${m.phone || '—'}</td>
-              <td><a href="mailto:${m.email}">${m.email || '—'}</a></td>
-            `;
-            tbody.appendChild(tr);
-          });
-          document.getElementById('dir-loading').style.display = 'none';
-          document.getElementById('dir-table').style.display = 'table';
-        }
-      }
-    } catch (e) {
-      document.getElementById('dir-loading').textContent = 'Could not load directory.';
-    }
+    loadDirectory();
 
     // Newsletters
     try {
@@ -605,6 +616,7 @@
       const msg = document.getElementById('dir-pref-success');
       msg.style.display = 'inline';
       setTimeout(() => msg.style.display = 'none', 2500);
+      loadDirectory();
     }
   }
 

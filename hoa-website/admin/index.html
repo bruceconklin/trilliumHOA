@@ -257,7 +257,8 @@
 
       <div class="card">
         <h2>All Members</h2>
-        <table>
+        <div style="overflow-x:auto;">
+        <table style="min-width:800px;">
           <thead>
             <tr>
               <th>Name</th>
@@ -275,6 +276,7 @@
             <tr><td colspan="8" style="color:#888">Loading…</td></tr>
           </tbody>
         </table>
+        </div>
         <div class="action-bar">
           <button class="btn btn-primary" onclick="saveAllMembers()">&#10003; Save All Changes</button>
         </div>
