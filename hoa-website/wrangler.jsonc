@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "trilliumhoa",
+  "main": "_worker.js",
   "compatibility_date": "2026-06-14",
   "observability": {
     "enabled": true
@@ -10,5 +11,11 @@
   },
   "compatibility_flags": [
     "nodejs_compat"
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "HOA_DATA",
+      "id": "9d72b68542b04ca68bbc0f7643f97644"
+    }
   ]
 }
