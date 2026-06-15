@@ -370,6 +370,10 @@
           <input type="email" id="p-spouse-email" placeholder="partner@example.com" />
           <p class="form-note">Used to log in.</p>
         </div>
+        <div class="form-field">
+          <label>Phone</label>
+          <input type="tel" id="p-spouse-phone" placeholder="415-555-1234" />
+        </div>
       </div>
       <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-size:0.95rem;margin-bottom:1rem;">
         <input type="checkbox" id="p-spouse-show-directory" style="width:auto;transform:scale(1.3);accent-color:#2d5a3d;cursor:pointer;" />
@@ -554,6 +558,7 @@
           document.getElementById('spouse-section').style.display = 'block';
           document.getElementById('p-spouse-name').value = me.spouse_name || '';
           document.getElementById('p-spouse-email').value = me.spouse_email || '';
+          document.getElementById('p-spouse-phone').value = me.spouse_phone || '';
           document.getElementById('p-spouse-show-directory').checked = me.spouse_show_in_directory === true;
           if (me.spouse_name || me.spouse_email) {
             document.getElementById('remove-spouse-btn').style.display = 'inline-block';
@@ -646,12 +651,13 @@
   async function saveSpouse() {
     const spouse_name = document.getElementById('p-spouse-name').value.trim();
     const spouse_email = document.getElementById('p-spouse-email').value.trim();
+    const spouse_phone = document.getElementById('p-spouse-phone').value.trim();
     const spouse_show_in_directory = document.getElementById('p-spouse-show-directory').checked;
     try {
       const res = await fetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spouse_name, spouse_email, spouse_show_in_directory }),
+        body: JSON.stringify({ spouse_name, spouse_email, spouse_phone, spouse_show_in_directory }),
       });
       if (res.ok) {
         const el = document.getElementById('spouse-success');
@@ -680,6 +686,7 @@
       if (res.ok) {
         document.getElementById('p-spouse-name').value = '';
         document.getElementById('p-spouse-email').value = '';
+        document.getElementById('p-spouse-phone').value = '';
         document.getElementById('p-spouse-show-directory').checked = false;
         document.getElementById('remove-spouse-btn').style.display = 'none';
         loadDirectory();

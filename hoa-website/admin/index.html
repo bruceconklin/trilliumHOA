@@ -242,7 +242,7 @@
           </div>
         </div>
         <div style="border-top:1px solid #e8f0ea;margin-top:0.75rem;padding-top:0.75rem;">
-          <div class="form-grid" style="margin-bottom:0.5rem;">
+          <div class="form-grid" style="margin-bottom:0.75rem;">
             <div>
               <label>Family Member Name</label>
               <input type="text" id="m-spouse-name" placeholder="Partner's name (optional)" />
@@ -251,6 +251,18 @@
               <label>Family Member Email</label>
               <input type="email" id="m-spouse-email" placeholder="partner@example.com (optional)" />
             </div>
+            <div>
+              <label>Family Member Phone</label>
+              <input type="tel" id="m-spouse-phone" placeholder="415-555-1234 (optional)" />
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="m-spouse-show-directory" />
+            <label for="m-spouse-show-directory">Family member visible in directory</label>
+          </div>
+          <div class="checkbox-row" style="margin-top:0.5rem;">
+            <input type="checkbox" id="m-spouse-is-admin" />
+            <label for="m-spouse-is-admin">Family member is admin — independent of primary account</label>
           </div>
         </div>
         <div class="checkbox-row">
@@ -436,6 +448,9 @@
     document.getElementById('m-method').value = m.payment_method || 'check';
     document.getElementById('m-spouse-name').value = m.spouse_name || '';
     document.getElementById('m-spouse-email').value = m.spouse_email || '';
+    document.getElementById('m-spouse-phone').value = m.spouse_phone || '';
+    document.getElementById('m-spouse-show-directory').checked = m.spouse_show_in_directory === true;
+    document.getElementById('m-spouse-is-admin').checked = m.spouse_is_admin === true;
     document.getElementById('m-show-directory').checked = m.show_in_directory === true;
     document.getElementById('m-is-admin').checked = m.is_admin === true;
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -451,11 +466,13 @@
   function clearMemberForm() {
     document.getElementById('edit-index').value = '';
     document.getElementById('member-form-title').textContent = 'Add New Member';
-    ['m-name','m-email','m-address','m-phone','m-spouse-name','m-spouse-email'].forEach(id => document.getElementById(id).value = '');
+    ['m-name','m-email','m-address','m-phone','m-spouse-name','m-spouse-email','m-spouse-phone'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('m-status').value = 'current';
     document.getElementById('m-method').value = 'check';
     document.getElementById('m-show-directory').checked = false;
     document.getElementById('m-is-admin').checked = false;
+    document.getElementById('m-spouse-show-directory').checked = false;
+    document.getElementById('m-spouse-is-admin').checked = false;
   }
 
   async function saveMember() {
@@ -476,6 +493,9 @@
       is_admin: document.getElementById('m-is-admin').checked,
       ...(spouseName ? { spouse_name: spouseName } : {}),
       ...(spouseEmail ? { spouse_email: spouseEmail } : {}),
+      ...(document.getElementById('m-spouse-phone').value.trim() ? { spouse_phone: document.getElementById('m-spouse-phone').value.trim() } : {}),
+      spouse_show_in_directory: document.getElementById('m-spouse-show-directory').checked,
+      spouse_is_admin: document.getElementById('m-spouse-is-admin').checked,
       // Preserve stripe_email if editing an existing record
       ...(document.getElementById('edit-index').value !== '' && members[parseInt(document.getElementById('edit-index').value)]?.stripe_email
         ? { stripe_email: members[parseInt(document.getElementById('edit-index').value)].stripe_email }
