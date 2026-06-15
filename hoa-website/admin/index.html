@@ -257,14 +257,11 @@
 
       <div class="card">
         <h2>All Members</h2>
-        <div style="overflow-x:auto;">
-        <table style="min-width:800px;">
+        <table>
           <thead>
             <tr>
               <th>Name</th>
               <th>Email</th>
-              <th>Address</th>
-              <th>Phone</th>
               <th>Dues Status</th>
               <th>Payment Method</th>
               <th>Directory</th>
@@ -273,10 +270,9 @@
             </tr>
           </thead>
           <tbody id="members-tbody">
-            <tr><td colspan="8" style="color:#888">Loading…</td></tr>
+            <tr><td colspan="7" style="color:#888">Loading…</td></tr>
           </tbody>
         </table>
-        </div>
         <div class="action-bar">
           <button class="btn btn-primary" onclick="saveAllMembers()">&#10003; Save All Changes</button>
         </div>
@@ -402,8 +398,6 @@
       <tr>
         <td>${m.name}</td>
         <td>${m.email}</td>
-        <td>${m.address || '—'}</td>
-        <td>${m.phone || '—'}</td>
         <td>${m.payment_status === 'current'
           ? '<span class="badge badge-current">Current</span>'
           : '<span class="badge badge-past-due">Past Due</span>'}</td>
