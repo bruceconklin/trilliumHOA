@@ -245,10 +245,16 @@ async function handleProfile(request, env, email) {
     }
   }
 
-  // Shared household fields (both primary and spouse can update)
-  ['address', 'phone'].forEach(f => {
-    if (body[f] !== undefined) members[idx][f] = String(body[f]).trim();
-  });
+  // Address is shared; phone routes to the correct field based on who is logged in
+  if (body.address !== undefined) members[idx].address = String(body.address).trim();
+  if (body.phone !== undefined) {
+    if (isSpouse) {
+      const sp = String(body.phone).trim();
+      if (sp) members[idx].spouse_phone = sp; else delete members[idx].spouse_phone;
+    } else {
+      members[idx].phone = String(body.phone).trim();
+    }
+  }
   // show_in_directory controls each person's own entry
   if (body.show_in_directory !== undefined) {
     if (isSpouse) {
