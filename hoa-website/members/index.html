@@ -280,7 +280,7 @@
   <a href="/">Home</a>
   <a href="/#dues">Dues</a>
   <a href="/#board">Board</a>
-  <a href="/members/" class="active">My Account</a>
+  <a href="/members/" class="active">Members Portal</a>
   <a href="/admin/" class="admin-nav-link" id="admin-link">Admin Panel</a>
   <a href="#" onclick="logout()" style="color:#cde8d6;text-decoration:none;font-family:'Helvetica Neue',Arial,sans-serif;font-size:0.9rem;letter-spacing:0.05em;text-transform:uppercase;">Sign Out</a>
 </nav>
@@ -461,6 +461,10 @@
     // My account
     try {
       const res = await fetch('/api/me');
+      if (!res.ok) {
+        window.location.href = '/members/login/?redirect=/members/';
+        return;
+      }
       if (res.ok) {
         const me = await res.json();
         document.getElementById('greeting').textContent = 'Welcome, ' + me.name;
