@@ -183,6 +183,7 @@
   <h1>HOA Admin Panel</h1>
   <a href="/members/">&larr; Back to Member Portal</a>
   <a href="/">Public Site</a>
+  <a href="#" onclick="logout()" style="margin-left:auto;color:#cde8d6;text-decoration:none;font-size:0.85rem;">Sign Out</a>
 </header>
 
 <!-- Shown if not admin -->
@@ -241,6 +242,10 @@
           </div>
         </div>
         <div class="checkbox-row">
+          <input type="checkbox" id="m-show-directory" />
+          <label for="m-show-directory">Visible in directory — member has opted to show contact info to neighbors</label>
+        </div>
+        <div class="checkbox-row" style="margin-top:0.5rem;">
           <input type="checkbox" id="m-is-admin" />
           <label for="m-is-admin">Admin — can access this admin panel and manage members, newsletters, and budget</label>
         </div>
@@ -261,6 +266,7 @@
               <th>Phone</th>
               <th>Dues Status</th>
               <th>Payment Method</th>
+              <th>Directory</th>
               <th>Role</th>
               <th></th>
             </tr>
@@ -400,6 +406,7 @@
           ? '<span class="badge badge-current">Current</span>'
           : '<span class="badge badge-past-due">Past Due</span>'}</td>
         <td>${methodLabel[m.payment_method] || m.payment_method || '—'}</td>
+        <td>${m.show_in_directory ? '<span class="badge badge-current">Visible</span>' : '<span style="color:#aaa;font-size:0.85rem;">Hidden</span>'}</td>
         <td>${m.is_admin ? '<span class="badge badge-admin">Admin</span>' : '—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-secondary btn-sm" onclick="editMember(${i})">Edit</button>
@@ -419,6 +426,7 @@
     document.getElementById('m-phone').value = m.phone || '';
     document.getElementById('m-status').value = m.payment_status || 'current';
     document.getElementById('m-method').value = m.payment_method || 'check';
+    document.getElementById('m-show-directory').checked = m.show_in_directory === true;
     document.getElementById('m-is-admin').checked = m.is_admin === true;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -436,6 +444,7 @@
     ['m-name','m-email','m-address','m-phone'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('m-status').value = 'current';
     document.getElementById('m-method').value = 'check';
+    document.getElementById('m-show-directory').checked = false;
     document.getElementById('m-is-admin').checked = false;
   }
 
@@ -451,6 +460,7 @@
       phone: document.getElementById('m-phone').value.trim(),
       payment_status: document.getElementById('m-status').value,
       payment_method: document.getElementById('m-method').value,
+      show_in_directory: document.getElementById('m-show-directory').checked,
       is_admin: document.getElementById('m-is-admin').checked,
     };
 
@@ -634,6 +644,11 @@
     renderMembers();
     renderNewsletters();
     renderBudget();
+  }
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/members/login/';
   }
 
   init();

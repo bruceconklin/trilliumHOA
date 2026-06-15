@@ -283,6 +283,7 @@
   <a href="/members/" class="active">Members</a>
   <a href="/#contact">Contact</a>
   <a href="/admin/" class="admin-nav-link" id="admin-link">Admin Panel</a>
+  <a href="#" onclick="logout()" style="color:#cde8d6;text-decoration:none;font-family:'Helvetica Neue',Arial,sans-serif;font-size:0.9rem;letter-spacing:0.05em;text-transform:uppercase;">Sign Out</a>
 </nav>
 
 <main>
@@ -332,6 +333,22 @@
       </div>
       <button class="btn btn-primary" onclick="saveProfile()">Save Changes</button>
       <div class="success-msg" id="profile-success">Profile updated!</div>
+    </div>
+
+    <div class="profile-section" style="margin-top:1.5rem;border-top:1px solid #e8f0ea;padding-top:1.5rem;">
+      <h3>Neighborhood Directory</h3>
+      <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;line-height:1.5">
+        Choose whether your contact info (name, address, phone, email) is visible to other members in the directory.
+        Admins can always see everyone regardless of this setting.
+      </p>
+      <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-size:0.95rem;">
+        <input type="checkbox" id="p-show-directory" style="width:auto;transform:scale(1.3);accent-color:#2d5a3d;cursor:pointer;" />
+        Show my contact info to neighbors
+      </label>
+      <div style="margin-top:1rem;">
+        <button class="btn btn-primary" style="width:auto;padding:0.5rem 1.25rem;font-size:0.9rem;" onclick="saveDirectoryPref()">Save Preference</button>
+        <span id="dir-pref-success" style="display:none;margin-left:1rem;color:#1a5c33;font-size:0.85rem;">Saved!</span>
+      </div>
     </div>
   </div>
 
@@ -451,6 +468,7 @@
         document.getElementById('p-email').value = me.email || '';
         document.getElementById('p-address').value = me.address || '';
         document.getElementById('p-phone').value = me.phone || '';
+        document.getElementById('p-show-directory').checked = me.show_in_directory === true;
         // Show admin link if admin
         if (me.is_admin) {
           document.getElementById('admin-link').style.display = 'inline-block';
@@ -470,18 +488,25 @@
       if (res.ok) {
         const members = await res.json();
         const tbody = document.getElementById('dir-body');
-        members.sort((a, b) => a.name.localeCompare(b.name)).forEach(m => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${m.name || '—'}</td>
-            <td>${m.address || '—'}</td>
-            <td>${m.phone || '—'}</td>
-            <td><a href="mailto:${m.email}">${m.email || '—'}</a></td>
-          `;
-          tbody.appendChild(tr);
-        });
-        document.getElementById('dir-loading').style.display = 'none';
-        document.getElementById('dir-table').style.display = 'table';
+        if (members.length === 0) {
+          document.getElementById('dir-loading').textContent = 'No members have chosen to share their contact info yet.';
+        } else {
+          members.sort((a, b) => a.name.localeCompare(b.name)).forEach(m => {
+            const tr = document.createElement('tr');
+            const hiddenBadge = m.hidden_from_directory
+              ? ' <span style="font-size:0.72rem;background:#f0e6f4;color:#7a3fa0;padding:0.1rem 0.4rem;border-radius:10px;vertical-align:middle;">hidden</span>'
+              : '';
+            tr.innerHTML = `
+              <td>${m.name || '—'}${hiddenBadge}</td>
+              <td>${m.address || '—'}</td>
+              <td>${m.phone || '—'}</td>
+              <td><a href="mailto:${m.email}">${m.email || '—'}</a></td>
+            `;
+            tbody.appendChild(tr);
+          });
+          document.getElementById('dir-loading').style.display = 'none';
+          document.getElementById('dir-table').style.display = 'table';
+        }
       }
     } catch (e) {
       document.getElementById('dir-loading').textContent = 'Could not load directory.';
@@ -557,6 +582,25 @@
     } catch (e) {
       document.getElementById('budget-loading').textContent = 'Could not load budget.';
     }
+  }
+
+  async function saveDirectoryPref() {
+    const show_in_directory = document.getElementById('p-show-directory').checked;
+    const res = await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ show_in_directory }),
+    });
+    if (res.ok) {
+      const msg = document.getElementById('dir-pref-success');
+      msg.style.display = 'inline';
+      setTimeout(() => msg.style.display = 'none', 2500);
+    }
+  }
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/members/login/';
   }
 
   load();

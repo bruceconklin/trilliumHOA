@@ -1,7 +1,15 @@
 // Trillium Lane HOA — Cloudflare Worker
-// Handles all /api/* routes; static assets (HTML, CSS, etc.) are served automatically.
+// Self-hosted email OTP authentication via Resend.
+//
+// Environment variables (set in Cloudflare Pages → Settings → Environment Variables):
+//   RESEND_API_KEY        — from resend.com dashboard
+//   STRIPE_WEBHOOK_SECRET — from Stripe Dashboard → Developers → Webhooks
 
-const SUPER_ADMIN = 'me@bruceconklin.com';
+const SUPER_ADMIN    = 'me@bruceconklin.com';
+const HOA_FROM_EMAIL = 'Trillium Lane HOA <noreply@trilliumlane.org>';
+const SESSION_COOKIE = 'hoa_session';
+const SESSION_TTL    = 60 * 60 * 24 * 7;   // 7 days in seconds
+const OTP_TTL        = 60 * 10;             // 10 minutes in seconds
 
 const PRICE_MONTHLY = 'price_1TaN7r2NsbOSaiK9BQjhidGr';
 const PRICE_YEARLY  = 'price_1TaN7r2NsbOSaiK9A2lsODMZ';
@@ -16,8 +24,19 @@ function json(data, status = 200) {
   });
 }
 
-function getEmail(request) {
-  return (request.headers.get('Cf-Access-Authenticated-User-Email') || '').toLowerCase();
+function getCookie(request, name) {
+  const header = request.headers.get('Cookie') || '';
+  const match = header.split(';').map(c => c.trim()).find(c => c.startsWith(name + '='));
+  return match ? match.slice(name.length + 1) : null;
+}
+
+async function getEmailFromSession(request, env) {
+  const sessionId = getCookie(request, SESSION_COOKIE);
+  if (!sessionId) return null;
+  const stored = await env.HOA_DATA.get(`session:${sessionId}`);
+  if (!stored) return null;
+  try { return JSON.parse(stored).email || null; }
+  catch { return null; }
 }
 
 function isAdmin(email, members) {
@@ -30,92 +49,203 @@ async function getMembers(env) {
   return JSON.parse(await env.HOA_DATA.get('members') || '[]');
 }
 
+function loginRedirect(path) {
+  return Response.redirect(`/members/login/?redirect=${encodeURIComponent(path)}`, 302);
+}
+
 // ---------------------------------------------------------------------------
-// Route handlers
+// Auth handlers
+// ---------------------------------------------------------------------------
+
+// POST /api/auth/request-otp
+async function handleRequestOTP(request, env) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  const { email } = await request.json();
+  if (!email) return json({ error: 'Email required' }, 400);
+
+  const normalEmail = email.toLowerCase().trim();
+  const members = await getMembers(env);
+  const member = members.find(m => m.email.toLowerCase() === normalEmail);
+
+  // Also allow superadmin even if not in members list
+  if (!member && normalEmail !== SUPER_ADMIN.toLowerCase()) {
+    return json({ error: 'Email not found. Contact bruce@trilliumlane.org to be added as a member.' }, 404);
+  }
+
+  const name = member?.name || 'there';
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+
+  // Store OTP in KV (10 min TTL)
+  await env.HOA_DATA.put(
+    `otp:${normalEmail}`,
+    JSON.stringify({ code }),
+    { expirationTtl: OTP_TTL }
+  );
+
+  // Send email via Resend
+  const emailRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: HOA_FROM_EMAIL,
+      to: email,
+      subject: 'Your Trillium Lane HOA login code',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;color:#2c2c2c">
+          <div style="background:#2d5a3d;padding:1.5rem;text-align:center">
+            <h1 style="color:#fff;font-size:1.2rem;margin:0">Trillium Lane HOA</h1>
+          </div>
+          <div style="padding:2rem;background:#fff;border:1px solid #d4e6da">
+            <p>Hi ${name},</p>
+            <p>Your one-time login code for the member portal is:</p>
+            <div style="text-align:center;margin:2rem 0">
+              <span style="font-size:2.5rem;font-weight:bold;letter-spacing:0.4em;color:#1e3f2b">${code}</span>
+            </div>
+            <p style="color:#666;font-size:0.9rem">This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.</p>
+          </div>
+          <p style="text-align:center;color:#999;font-size:0.75rem;padding:1rem">Trillium Lane HOA &middot; Mill Valley, CA</p>
+        </div>
+      `,
+    }),
+  });
+
+  if (!emailRes.ok) {
+    const err = await emailRes.text();
+    console.error('Resend error:', err);
+    return json({ error: 'Failed to send email. Please try again.' }, 500);
+  }
+
+  return json({ ok: true });
+}
+
+// POST /api/auth/verify-otp
+async function handleVerifyOTP(request, env) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  const { email, code } = await request.json();
+  if (!email || !code) return json({ error: 'Email and code required' }, 400);
+
+  const normalEmail = email.toLowerCase().trim();
+  const stored = await env.HOA_DATA.get(`otp:${normalEmail}`);
+  if (!stored) return json({ error: 'Code expired or not found. Please request a new one.' }, 400);
+
+  const { code: storedCode } = JSON.parse(stored);
+  if (code.trim() !== storedCode) return json({ error: 'Incorrect code. Please try again.' }, 400);
+
+  // Delete OTP — one-time use only
+  await env.HOA_DATA.delete(`otp:${normalEmail}`);
+
+  // Create session
+  const sessionId = crypto.randomUUID();
+  await env.HOA_DATA.put(
+    `session:${sessionId}`,
+    JSON.stringify({ email: normalEmail, created: Date.now() }),
+    { expirationTtl: SESSION_TTL }
+  );
+
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Set-Cookie': `${SESSION_COOKIE}=${sessionId}; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_TTL}; Path=/`,
+    },
+  });
+}
+
+// POST /api/auth/logout
+async function handleLogout(request, env) {
+  const sessionId = getCookie(request, SESSION_COOKIE);
+  if (sessionId) await env.HOA_DATA.delete(`session:${sessionId}`);
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Set-Cookie': `${SESSION_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/`,
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Protected API handlers
 // ---------------------------------------------------------------------------
 
 // GET /api/me
-async function handleMe(request, env) {
-  const email = getEmail(request);
-  if (!email) return json({ error: 'Not authenticated' }, 401);
+async function handleMe(request, env, email) {
   const members = await getMembers(env);
   const m = members.find(m => m.email.toLowerCase() === email);
-  if (!m) return json({ error: 'Member not found' }, 404);
+  if (!m) {
+    if (email === SUPER_ADMIN.toLowerCase()) {
+      return json({ name: 'Bruce Conklin', email, address: '', phone: '', payment_status: 'current', payment_method: 'check', is_admin: true, show_in_directory: false });
+    }
+    return json({ error: 'Member not found' }, 404);
+  }
   return json({
-    name: m.name,
-    email: m.email,
-    address: m.address || '',
-    phone: m.phone || '',
+    name: m.name, email: m.email,
+    address: m.address || '', phone: m.phone || '',
     payment_status: m.payment_status,
     payment_method: m.payment_method,
-    is_admin: m.is_admin === true,
+    is_admin: m.is_admin === true || email === SUPER_ADMIN.toLowerCase(),
+    show_in_directory: m.show_in_directory === true,
   });
 }
 
 // PATCH /api/profile
-async function handleProfile(request, env) {
+async function handleProfile(request, env, email) {
   if (request.method !== 'PATCH') return json({ error: 'Method not allowed' }, 405);
-  const email = getEmail(request);
-  if (!email) return json({ error: 'Not authenticated' }, 401);
   const members = await getMembers(env);
   const idx = members.findIndex(m => m.email.toLowerCase() === email);
   if (idx === -1) return json({ error: 'Member not found' }, 404);
   const body = await request.json();
-  ['name', 'address', 'phone'].forEach(field => {
-    if (body[field] !== undefined) members[idx][field] = String(body[field]).trim();
+  ['name', 'address', 'phone'].forEach(f => {
+    if (body[f] !== undefined) members[idx][f] = String(body[f]).trim();
   });
+  if (body.show_in_directory !== undefined) {
+    members[idx].show_in_directory = body.show_in_directory === true;
+  }
   await env.HOA_DATA.put('members', JSON.stringify(members));
-  return json({ ok: true, name: members[idx].name, address: members[idx].address, phone: members[idx].phone });
+  return json({ ok: true, name: members[idx].name, address: members[idx].address, phone: members[idx].phone, show_in_directory: members[idx].show_in_directory === true });
 }
 
-// GET /api/members — directory (no payment info)
-async function handleMembers(request, env) {
-  const email = getEmail(request);
-  if (!email) return json({ error: 'Not authenticated' }, 401);
+// GET /api/members
+async function handleMembers(request, env, email) {
   const members = await getMembers(env);
-  return json(members.map(m => ({
-    name: m.name,
-    email: m.email,
-    address: m.address || '',
-    phone: m.phone || '',
+  const admin = isAdmin(email, members);
+  const visible = admin ? members : members.filter(m => m.show_in_directory === true);
+  return json(visible.map(m => ({
+    name: m.name, email: m.email,
+    address: m.address || '', phone: m.phone || '',
+    ...(admin && !m.show_in_directory ? { hidden_from_directory: true } : {}),
   })));
 }
 
 // GET /api/newsletters
 async function handleNewsletters(request, env) {
-  const email = getEmail(request);
-  if (!email) return json({ error: 'Not authenticated' }, 401);
   const data = await env.HOA_DATA.get('newsletters') || '[]';
   return new Response(data, { headers: { 'Content-Type': 'application/json' } });
 }
 
 // GET /api/budget
 async function handleBudget(request, env) {
-  const email = getEmail(request);
-  if (!email) return json({ error: 'Not authenticated' }, 401);
   const data = await env.HOA_DATA.get('budget') || '[]';
   return new Response(data, { headers: { 'Content-Type': 'application/json' } });
 }
 
 // GET/PUT /api/admin/members
-async function handleAdminMembers(request, env) {
-  const email = getEmail(request);
+async function handleAdminMembers(request, env, email) {
   const members = await getMembers(env);
   if (!isAdmin(email, members)) return json({ error: 'Unauthorized' }, 403);
-  if (request.method === 'GET') {
-    return json(members);
-  }
+  if (request.method === 'GET') return json(members);
   if (request.method === 'PUT') {
-    const body = await request.json();
-    await env.HOA_DATA.put('members', JSON.stringify(body));
+    await env.HOA_DATA.put('members', JSON.stringify(await request.json()));
     return json({ ok: true });
   }
   return json({ error: 'Method not allowed' }, 405);
 }
 
 // GET/PUT /api/admin/newsletters
-async function handleAdminNewsletters(request, env) {
-  const email = getEmail(request);
+async function handleAdminNewsletters(request, env, email) {
   const members = await getMembers(env);
   if (!isAdmin(email, members)) return json({ error: 'Unauthorized' }, 403);
   if (request.method === 'GET') {
@@ -123,16 +253,14 @@ async function handleAdminNewsletters(request, env) {
     return new Response(data, { headers: { 'Content-Type': 'application/json' } });
   }
   if (request.method === 'PUT') {
-    const body = await request.json();
-    await env.HOA_DATA.put('newsletters', JSON.stringify(body));
+    await env.HOA_DATA.put('newsletters', JSON.stringify(await request.json()));
     return json({ ok: true });
   }
   return json({ error: 'Method not allowed' }, 405);
 }
 
 // GET/PUT /api/admin/budget
-async function handleAdminBudget(request, env) {
-  const email = getEmail(request);
+async function handleAdminBudget(request, env, email) {
   const members = await getMembers(env);
   if (!isAdmin(email, members)) return json({ error: 'Unauthorized' }, 403);
   if (request.method === 'GET') {
@@ -140,8 +268,7 @@ async function handleAdminBudget(request, env) {
     return new Response(data, { headers: { 'Content-Type': 'application/json' } });
   }
   if (request.method === 'PUT') {
-    const body = await request.json();
-    await env.HOA_DATA.put('budget', JSON.stringify(body));
+    await env.HOA_DATA.put('budget', JSON.stringify(await request.json()));
     return json({ ok: true });
   }
   return json({ error: 'Method not allowed' }, 405);
@@ -150,31 +277,17 @@ async function handleAdminBudget(request, env) {
 // POST /api/stripe-webhook
 async function handleStripeWebhook(request, env) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-
   const rawBody = await request.text();
   const sigHeader = request.headers.get('Stripe-Signature') || '';
+  if (!env.STRIPE_WEBHOOK_SECRET) return json({ error: 'Server misconfiguration' }, 500);
 
-  if (!env.STRIPE_WEBHOOK_SECRET) {
-    console.error('STRIPE_WEBHOOK_SECRET not set');
-    return json({ error: 'Server misconfiguration' }, 500);
-  }
-
-  // Verify Stripe signature
   const parts = Object.fromEntries(sigHeader.split(',').map(p => p.split('=')));
   const timestamp = parts.t;
   const receivedSig = parts.v1;
   if (!timestamp || !receivedSig) return json({ error: 'Invalid signature header' }, 400);
+  if (Math.floor(Date.now() / 1000) - parseInt(timestamp) > 300) return json({ error: 'Timestamp too old' }, 400);
 
-  const age = Math.floor(Date.now() / 1000) - parseInt(timestamp);
-  if (age > 300) return json({ error: 'Timestamp too old' }, 400);
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(env.STRIPE_WEBHOOK_SECRET),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.STRIPE_WEBHOOK_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const sigBytes = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${timestamp}.${rawBody}`));
   const computedSig = Array.from(new Uint8Array(sigBytes)).map(b => b.toString(16).padStart(2, '0')).join('');
   if (computedSig !== receivedSig) return json({ error: 'Invalid signature' }, 400);
@@ -188,22 +301,13 @@ async function handleStripeWebhook(request, env) {
       if (session.mode !== 'subscription') break;
       const email = session.customer_details?.email?.toLowerCase();
       if (!email) break;
-      const amount = session.amount_total;
-      const paymentMethod = amount === 24000 ? 'autopay_annual' : 'autopay_monthly';
+      const paymentMethod = session.amount_total === 24000 ? 'autopay_annual' : 'autopay_monthly';
       const idx = members.findIndex(m => m.email.toLowerCase() === email);
       if (idx !== -1) {
         members[idx].payment_status = 'current';
         members[idx].payment_method = paymentMethod;
       } else {
-        members.push({
-          name: session.customer_details?.name || '',
-          email,
-          address: '',
-          phone: '',
-          payment_status: 'current',
-          payment_method: paymentMethod,
-          is_admin: false,
-        });
+        members.push({ name: session.customer_details?.name || '', email, address: '', phone: '', payment_status: 'current', payment_method: paymentMethod, is_admin: false });
       }
       await env.HOA_DATA.put('members', JSON.stringify(members));
       break;
@@ -243,27 +347,51 @@ async function handleStripeWebhook(request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Main fetch handler — route /api/* or fall through to static assets
+// Main fetch handler
 // ---------------------------------------------------------------------------
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
+    const url  = new URL(request.url);
     const path = url.pathname;
 
-    if (path.startsWith('/api/')) {
-      if (path === '/api/me')                   return handleMe(request, env);
-      if (path === '/api/profile')              return handleProfile(request, env);
-      if (path === '/api/members')              return handleMembers(request, env);
-      if (path === '/api/newsletters')          return handleNewsletters(request, env);
-      if (path === '/api/budget')               return handleBudget(request, env);
-      if (path === '/api/admin/members')        return handleAdminMembers(request, env);
-      if (path === '/api/admin/newsletters')    return handleAdminNewsletters(request, env);
-      if (path === '/api/admin/budget')         return handleAdminBudget(request, env);
-      if (path === '/api/stripe-webhook')       return handleStripeWebhook(request, env);
+    // ── Public auth endpoints (no session required) ──
+    if (path.startsWith('/api/auth/')) {
+      if (path === '/api/auth/request-otp') return handleRequestOTP(request, env);
+      if (path === '/api/auth/verify-otp')  return handleVerifyOTP(request, env);
+      if (path === '/api/auth/logout')      return handleLogout(request, env);
       return json({ error: 'Not found' }, 404);
     }
 
-    // All other requests → serve static assets (HTML, CSS, images, etc.)
+    // ── Stripe webhook (has its own auth via signature) ──
+    if (path === '/api/stripe-webhook') return handleStripeWebhook(request, env);
+
+    // ── Protected API endpoints ──
+    if (path.startsWith('/api/')) {
+      const email = await getEmailFromSession(request, env);
+      if (!email) return json({ error: 'Not authenticated' }, 401);
+
+      if (path === '/api/me')                return handleMe(request, env, email);
+      if (path === '/api/profile')           return handleProfile(request, env, email);
+      if (path === '/api/members')           return handleMembers(request, env, email);
+      if (path === '/api/newsletters')       return handleNewsletters(request, env);
+      if (path === '/api/budget')            return handleBudget(request, env);
+      if (path === '/api/admin/members')     return handleAdminMembers(request, env, email);
+      if (path === '/api/admin/newsletters') return handleAdminNewsletters(request, env, email);
+      if (path === '/api/admin/budget')      return handleAdminBudget(request, env, email);
+      return json({ error: 'Not found' }, 404);
+    }
+
+    // ── Protected pages: redirect to login if no valid session ──
+    if (path.startsWith('/members/') && !path.startsWith('/members/login')) {
+      const email = await getEmailFromSession(request, env);
+      if (!email) return loginRedirect(path);
+    }
+    if (path.startsWith('/admin/')) {
+      const email = await getEmailFromSession(request, env);
+      if (!email) return loginRedirect(path);
+    }
+
+    // ── All other requests → static assets ──
     return env.ASSETS.fetch(request);
   },
 };

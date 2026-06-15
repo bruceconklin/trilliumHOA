@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Member Login — Trillium Lane HOA</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #f0f7f3;
+      color: #2c2c2c;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #2d5a3d;
+      color: #fff;
+      padding: 1.25rem 2rem;
+      text-align: center;
+    }
+
+    header h1 { font-size: 1.3rem; font-family: Georgia, serif; }
+    header p { font-size: 0.85rem; opacity: 0.8; margin-top: 0.2rem; }
+
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #d4e6da;
+      border-radius: 8px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .card h2 {
+      font-size: 1.2rem;
+      color: #1e3f2b;
+      margin-bottom: 0.5rem;
+      font-family: Georgia, serif;
+    }
+
+    .card .subtitle {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.35rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-family: inherit;
+      margin-bottom: 1rem;
+      transition: border-color 0.15s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #2d5a3d;
+      box-shadow: 0 0 0 3px rgba(45,90,61,0.1);
+    }
+
+    input.otp-input {
+      font-size: 1.8rem;
+      letter-spacing: 0.4em;
+      text-align: center;
+      font-weight: bold;
+      color: #1e3f2b;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: #2d5a3d;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-family: inherit;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+
+    .btn:hover { background: #1e3f2b; }
+    .btn:disabled { background: #9dbfaa; cursor: not-allowed; }
+
+    .msg {
+      margin-top: 1rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .msg.error { background: #fde8e8; color: #c0392b; border: 1px solid #f5c6c6; display: block; }
+    .msg.success { background: #d4f4e0; color: #1a5c33; border: 1px solid #a8ddb9; display: block; }
+
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      color: #2d5a3d;
+      cursor: pointer;
+      text-decoration: underline;
+      background: none;
+      border: none;
+      font-family: inherit;
+      width: 100%;
+    }
+
+    .back-link:hover { color: #1e3f2b; }
+
+    .email-display {
+      font-weight: bold;
+      color: #1e3f2b;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.78rem;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Trillium Lane HOA</h1>
+  <p>Member Portal</p>
+</header>
+
+<main>
+  <div class="card">
+
+    <!-- Step 1: Email -->
+    <div id="step-email">
+      <h2>Sign In</h2>
+      <p class="subtitle">Enter your email address and we'll send you a one-time login code.</p>
+      <label for="email">Email address</label>
+      <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+      <button class="btn" onclick="requestCode()">Send Login Code</button>
+      <div class="msg" id="msg-email"></div>
+    </div>
+
+    <!-- Step 2: OTP -->
+    <div id="step-otp" style="display:none">
+      <h2>Enter Your Code</h2>
+      <p class="subtitle">We sent a 6-digit code to <span class="email-display" id="email-display"></span>. It expires in 10 minutes.</p>
+      <label for="otp">Login code</label>
+      <input type="text" id="otp" class="otp-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
+      <button class="btn" onclick="verifyCode()">Sign In</button>
+      <div class="msg" id="msg-otp"></div>
+      <button class="back-link" onclick="goBack()">Use a different email</button>
+    </div>
+
+  </div>
+</main>
+
+<footer>&copy; 2026 Trillium Lane HOA</footer>
+
+<script>
+  // Where to go after login (default: /members/)
+  const params = new URLSearchParams(window.location.search);
+  const redirect = params.get('redirect') || '/members/';
+
+  let currentEmail = '';
+
+  // If already logged in, redirect immediately
+  fetch('/api/me').then(r => {
+    if (r.ok) window.location.href = redirect;
+  });
+
+  function showMsg(id, text, type) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg ' + type;
+  }
+
+  function clearMsg(id) {
+    const el = document.getElementById(id);
+    el.className = 'msg';
+    el.textContent = '';
+  }
+
+  async function requestCode() {
+    const email = document.getElementById('email').value.trim();
+    if (!email) { showMsg('msg-email', 'Please enter your email address.', 'error'); return; }
+
+    const btn = document.querySelector('#step-email .btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    clearMsg('msg-email');
+
+    try {
+      const res = await fetch('/api/auth/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        currentEmail = email;
+        document.getElementById('email-display').textContent = email;
+        document.getElementById('step-email').style.display = 'none';
+        document.getElementById('step-otp').style.display = 'block';
+        document.getElementById('otp').focus();
+      } else {
+        showMsg('msg-email', data.error || 'Something went wrong. Try again.', 'error');
+      }
+    } catch (e) {
+      showMsg('msg-email', 'Network error. Please try again.', 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Send Login Code';
+  }
+
+  async function verifyCode() {
+    const code = document.getElementById('otp').value.trim();
+    if (code.length !== 6) { showMsg('msg-otp', 'Please enter the 6-digit code.', 'error'); return; }
+
+    const btn = document.querySelector('#step-otp .btn');
+    btn.disabled = true;
+    btn.textContent = 'Verifying…';
+    clearMsg('msg-otp');
+
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentEmail, code }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        window.location.href = redirect;
+      } else {
+        showMsg('msg-otp', data.error || 'Incorrect code. Please try again.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      }
+    } catch (e) {
+      showMsg('msg-otp', 'Network error. Please try again.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    }
+  }
+
+  function goBack() {
+    document.getElementById('step-otp').style.display = 'none';
+    document.getElementById('step-email').style.display = 'block';
+    document.getElementById('otp').value = '';
+    clearMsg('msg-otp');
+  }
+
+  // Allow pressing Enter to submit
+  document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') requestCode(); });
+  document.getElementById('otp').addEventListener('keydown', e => { if (e.key === 'Enter') verifyCode(); });
+</script>
+</body>
+</html>
