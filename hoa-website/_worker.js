@@ -4,6 +4,7 @@
 // Environment variables (set in Cloudflare Pages → Settings → Environment Variables):
 //   RESEND_API_KEY        — from resend.com dashboard
 //   STRIPE_WEBHOOK_SECRET — from Stripe Dashboard → Developers → Webhooks
+//   STRIPE_SECRET_KEY     — from Stripe Dashboard → Developers → API keys (secret key)
 
 const SUPER_ADMIN    = 'me@bruceconklin.com';
 const HOA_FROM_EMAIL = 'Trillium Lane HOA <noreply@trilliumlane.org>';
@@ -274,6 +275,47 @@ async function handleAdminBudget(request, env, email) {
   return json({ error: 'Method not allowed' }, 405);
 }
 
+// GET /api/stripe/portal — redirect authenticated user to Stripe Billing Portal
+async function handleStripePortal(request, env, email) {
+  if (!env.STRIPE_SECRET_KEY) return json({ error: 'Server misconfiguration' }, 500);
+
+  // Find the Stripe customer by email
+  const searchRes = await fetch(
+    `https://api.stripe.com/v1/customers/search?query=email:'${encodeURIComponent(email)}'`,
+    { headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` } }
+  );
+  if (!searchRes.ok) return json({ error: 'Could not look up subscription' }, 500);
+  const searchData = await searchRes.json();
+
+  if (!searchData.data || searchData.data.length === 0) {
+    return new Response('No Stripe subscription found for this account. If you pay by check, contact bruce@trilliumlane.org to cancel.', {
+      status: 404, headers: { 'Content-Type': 'text/plain' },
+    });
+  }
+
+  // Create a billing portal session
+  const portalRes = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      customer: searchData.data[0].id,
+      return_url: 'https://trilliumlane.org/members/',
+    }),
+  });
+
+  if (!portalRes.ok) {
+    const err = await portalRes.text();
+    console.error('Stripe portal error:', err);
+    return json({ error: 'Could not create portal session' }, 500);
+  }
+
+  const { url } = await portalRes.json();
+  return Response.redirect(url, 302);
+}
+
 // POST /api/stripe-webhook
 async function handleStripeWebhook(request, env) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -375,6 +417,7 @@ export default {
       if (path === '/api/members')           return handleMembers(request, env, email);
       if (path === '/api/newsletters')       return handleNewsletters(request, env);
       if (path === '/api/budget')            return handleBudget(request, env);
+      if (path === '/api/stripe/portal')     return handleStripePortal(request, env, email);
       if (path === '/api/admin/members')     return handleAdminMembers(request, env, email);
       if (path === '/api/admin/newsletters') return handleAdminNewsletters(request, env, email);
       if (path === '/api/admin/budget')      return handleAdminBudget(request, env, email);

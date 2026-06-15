@@ -280,8 +280,7 @@
   <a href="/">Home</a>
   <a href="/#dues">Dues</a>
   <a href="/#board">Board</a>
-  <a href="/members/" class="active">Members</a>
-  <a href="/#contact">Contact</a>
+  <a href="/members/" class="active">My Account</a>
   <a href="/admin/" class="admin-nav-link" id="admin-link">Admin Panel</a>
   <a href="#" onclick="logout()" style="color:#cde8d6;text-decoration:none;font-family:'Helvetica Neue',Arial,sans-serif;font-size:0.9rem;letter-spacing:0.05em;text-transform:uppercase;">Sign Out</a>
 </nav>
@@ -298,6 +297,10 @@
     <div class="status-item">
       <div class="status-label">Payment Method</div>
       <div class="status-value" id="payment-method"><span class="loading">Loading…</span></div>
+    </div>
+    <div class="status-item" id="manage-sub-item" style="display:none">
+      <div class="status-label">Online Billing</div>
+      <div class="status-value"><a href="/api/stripe/portal" style="color:#2d5a3d;font-size:0.9rem;font-family:'Helvetica Neue',Arial,sans-serif;">Manage / Cancel</a></div>
     </div>
   </div>
 
@@ -463,6 +466,9 @@
         document.getElementById('greeting').textContent = 'Welcome, ' + me.name;
         document.getElementById('payment-status').innerHTML = fmt.paymentStatus(me.payment_status);
         document.getElementById('payment-method').textContent = fmt.paymentMethod(me.payment_method);
+        if (me.payment_method === 'autopay_monthly' || me.payment_method === 'autopay_annual') {
+          document.getElementById('manage-sub-item').style.display = 'block';
+        }
         // Pre-fill profile form
         document.getElementById('p-name').value = me.name || '';
         document.getElementById('p-email').value = me.email || '';
