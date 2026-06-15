@@ -163,6 +163,7 @@
     <div id="step-email">
       <h2>Sign In</h2>
       <p class="subtitle">Enter your email address and we'll send you a one-time login code.</p>
+      <p class="subtitle" style="margin-top:0.5rem;font-size:0.82rem;color:#888;">Use the same email address you used to pay dues. Not sure? Email <a href="mailto:hoa@trilliumlane.org" style="color:#2d5a3d;">hoa@trilliumlane.org</a>.</p>
       <label for="email">Email address</label>
       <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
       <button class="btn" onclick="requestCode()">Send Login Code</button>
@@ -173,6 +174,7 @@
     <div id="step-otp" style="display:none">
       <h2>Enter Your Code</h2>
       <p class="subtitle">We sent a 6-digit code to <span class="email-display" id="email-display"></span>. It expires in 10 minutes.</p>
+      <p class="subtitle" style="margin-top:0.5rem;font-size:0.82rem;color:#888;">Don't see it? Check your spam or junk folder.</p>
       <label for="otp">Login code</label>
       <input type="text" id="otp" class="otp-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
       <button class="btn" onclick="verifyCode()">Sign In</button>

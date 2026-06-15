@@ -448,7 +448,7 @@
     document.getElementById('m-is-admin').checked = false;
   }
 
-  function saveMember() {
+  async function saveMember() {
     const name = document.getElementById('m-name').value.trim();
     const email = document.getElementById('m-email').value.trim();
     if (!name || !email) { showToast('Name and email are required.', true); return; }
@@ -477,7 +477,7 @@
     }
     renderMembers();
     clearMemberForm();
-    showToast('Member saved — click Save All Changes to persist.');
+    await saveAllMembers();
   }
 
   async function saveAllMembers() {
