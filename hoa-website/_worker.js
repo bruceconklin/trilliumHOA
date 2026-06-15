@@ -9,7 +9,7 @@
 const SUPER_ADMIN    = 'me@bruceconklin.com';
 const HOA_FROM_EMAIL = 'Trillium Lane HOA <noreply@trilliumlane.org>';
 const SESSION_COOKIE = 'hoa_session';
-const SESSION_TTL    = 60 * 60 * 24 * 7;   // 7 days in seconds
+const SESSION_TTL    = 60 * 60 * 24 * 60;  // 60 days in seconds
 const OTP_TTL        = 60 * 10;             // 10 minutes in seconds
 
 const PRICE_MONTHLY = 'price_1TaN7r2NsbOSaiK9BQjhidGr';
