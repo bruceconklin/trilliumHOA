@@ -105,9 +105,15 @@
       font-weight: bold;
     }
 
+    .pay-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
     .pay-button {
       display: inline-block;
-      margin-top: 1rem;
       background: #2d5a3d;
       color: #fff;
       padding: 0.75rem 2rem;
@@ -119,6 +125,14 @@
     }
 
     .pay-button:hover { background: #1e3f2b; }
+
+    .pay-button.secondary {
+      background: #fff;
+      color: #2d5a3d;
+      border: 2px solid #2d5a3d;
+    }
+
+    .pay-button.secondary:hover { background: #f0f7f3; }
 
     .board-grid {
       display: grid;
@@ -210,8 +224,10 @@
         <li>Mowing &amp; landscaping</li>
         <li>Minor repairs and upkeep</li>
       </ul>
-      <!-- Replace the href below with your Stripe Payment Link once created -->
-      <a class="pay-button" href="#contact">Pay Online — Coming Soon</a>
+      <div class="pay-buttons">
+        <a class="pay-button" href="https://buy.stripe.com/dRm14gf6lgr67WK3uO0kE01">Pay Annually — $240/yr</a>
+        <a class="pay-button secondary" href="https://buy.stripe.com/fZu7sE5vLfn2a4Sd5o0kE02">Pay Monthly — $20/mo</a>
+      </div>
     </div>
 
     <p>
