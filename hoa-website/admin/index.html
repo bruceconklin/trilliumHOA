@@ -241,6 +241,18 @@
             </select>
           </div>
         </div>
+        <div style="border-top:1px solid #e8f0ea;margin-top:0.75rem;padding-top:0.75rem;">
+          <div class="form-grid" style="margin-bottom:0.5rem;">
+            <div>
+              <label>Family Member Name</label>
+              <input type="text" id="m-spouse-name" placeholder="Partner's name (optional)" />
+            </div>
+            <div>
+              <label>Family Member Email</label>
+              <input type="email" id="m-spouse-email" placeholder="partner@example.com (optional)" />
+            </div>
+          </div>
+        </div>
         <div class="checkbox-row">
           <input type="checkbox" id="m-show-directory" />
           <label for="m-show-directory">Visible in directory — member has opted to show contact info to neighbors</label>
@@ -422,6 +434,8 @@
     document.getElementById('m-phone').value = m.phone || '';
     document.getElementById('m-status').value = m.payment_status || 'current';
     document.getElementById('m-method').value = m.payment_method || 'check';
+    document.getElementById('m-spouse-name').value = m.spouse_name || '';
+    document.getElementById('m-spouse-email').value = m.spouse_email || '';
     document.getElementById('m-show-directory').checked = m.show_in_directory === true;
     document.getElementById('m-is-admin').checked = m.is_admin === true;
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -437,7 +451,7 @@
   function clearMemberForm() {
     document.getElementById('edit-index').value = '';
     document.getElementById('member-form-title').textContent = 'Add New Member';
-    ['m-name','m-email','m-address','m-phone'].forEach(id => document.getElementById(id).value = '');
+    ['m-name','m-email','m-address','m-phone','m-spouse-name','m-spouse-email'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('m-status').value = 'current';
     document.getElementById('m-method').value = 'check';
     document.getElementById('m-show-directory').checked = false;
@@ -449,6 +463,8 @@
     const email = document.getElementById('m-email').value.trim();
     if (!name || !email) { showToast('Name and email are required.', true); return; }
 
+    const spouseName = document.getElementById('m-spouse-name').value.trim();
+    const spouseEmail = document.getElementById('m-spouse-email').value.trim().toLowerCase();
     const member = {
       name,
       email,
@@ -458,6 +474,12 @@
       payment_method: document.getElementById('m-method').value,
       show_in_directory: document.getElementById('m-show-directory').checked,
       is_admin: document.getElementById('m-is-admin').checked,
+      ...(spouseName ? { spouse_name: spouseName } : {}),
+      ...(spouseEmail ? { spouse_email: spouseEmail } : {}),
+      // Preserve stripe_email if editing an existing record
+      ...(document.getElementById('edit-index').value !== '' && members[parseInt(document.getElementById('edit-index').value)]?.stripe_email
+        ? { stripe_email: members[parseInt(document.getElementById('edit-index').value)].stripe_email }
+        : {}),
     };
 
     const idx = document.getElementById('edit-index').value;

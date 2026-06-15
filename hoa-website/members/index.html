@@ -353,6 +353,28 @@
         <span id="dir-pref-success" style="display:none;margin-left:1rem;color:#1a5c33;font-size:0.85rem;">Saved!</span>
       </div>
     </div>
+
+    <!-- Family member section — only shown to primary account holder -->
+    <div class="profile-section" id="spouse-section" style="display:none;margin-top:1.5rem;border-top:1px solid #e8f0ea;padding-top:1.5rem;">
+      <h3>Family Member / Co-occupant</h3>
+      <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;line-height:1.5">
+        Add a partner or spouse so they can log in and manage this account — including updating contact info and managing billing.
+        Leave the email blank to remove their access.
+      </p>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Name</label>
+          <input type="text" id="p-spouse-name" placeholder="Partner's name" />
+        </div>
+        <div class="form-field">
+          <label>Email</label>
+          <input type="email" id="p-spouse-email" placeholder="partner@example.com" />
+          <p class="form-note">Used to log in. Leave blank to remove their access.</p>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveSpouse()">Save Family Member</button>
+      <div class="success-msg" id="spouse-success" style="display:none;margin-top:0.75rem;">Family member saved!</div>
+    </div>
   </div>
 
   <!-- ===== DIRECTORY TAB ===== -->
@@ -521,6 +543,12 @@
         if (me.is_admin) {
           document.getElementById('admin-link').style.display = 'inline-block';
         }
+        // Show family member section only for primary account holder
+        if (!me.is_spouse) {
+          document.getElementById('spouse-section').style.display = 'block';
+          document.getElementById('p-spouse-name').value = me.spouse_name || '';
+          document.getElementById('p-spouse-email').value = me.spouse_email || '';
+        }
       } else if (res.status === 404) {
         document.getElementById('greeting').textContent = 'Welcome';
         document.getElementById('status-card').innerHTML =
@@ -602,6 +630,27 @@
       }
     } catch (e) {
       document.getElementById('budget-loading').textContent = 'Could not load budget.';
+    }
+  }
+
+  async function saveSpouse() {
+    const spouse_name = document.getElementById('p-spouse-name').value.trim();
+    const spouse_email = document.getElementById('p-spouse-email').value.trim();
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spouse_name, spouse_email }),
+      });
+      if (res.ok) {
+        const el = document.getElementById('spouse-success');
+        el.style.display = 'block';
+        setTimeout(() => el.style.display = 'none', 3000);
+      } else {
+        alert('Could not save. Please try again.');
+      }
+    } catch (e) {
+      alert('Network error. Please try again.');
     }
   }
 

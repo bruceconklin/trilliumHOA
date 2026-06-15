@@ -42,8 +42,21 @@ async function getEmailFromSession(request, env) {
 
 function isAdmin(email, members) {
   if (email === SUPER_ADMIN.toLowerCase()) return true;
-  const m = members.find(m => m.email.toLowerCase() === email);
+  // Check primary email or spouse email — spouse inherits admin status from household
+  const m = members.find(m =>
+    m.email.toLowerCase() === email ||
+    (m.spouse_email && m.spouse_email.toLowerCase() === email)
+  );
   return !!(m && m.is_admin);
+}
+
+// Find the household record for a given email (primary or spouse login)
+function findHousehold(members, email) {
+  let idx = members.findIndex(m => m.email.toLowerCase() === email);
+  if (idx !== -1) return { idx, isSpouse: false };
+  idx = members.findIndex(m => m.spouse_email && m.spouse_email.toLowerCase() === email);
+  if (idx !== -1) return { idx, isSpouse: true };
+  return null;
 }
 
 async function getMembers(env) {
@@ -66,14 +79,21 @@ async function handleRequestOTP(request, env) {
 
   const normalEmail = email.toLowerCase().trim();
   const members = await getMembers(env);
-  const member = members.find(m => m.email.toLowerCase() === normalEmail);
+
+  // Find by primary email first, then spouse email
+  let member = members.find(m => m.email.toLowerCase() === normalEmail);
+  let isSpouse = false;
+  if (!member) {
+    member = members.find(m => m.spouse_email && m.spouse_email.toLowerCase() === normalEmail);
+    if (member) isSpouse = true;
+  }
 
   // Also allow superadmin even if not in members list
   if (!member && normalEmail !== SUPER_ADMIN.toLowerCase()) {
-    return json({ error: 'Email not found. Contact bruce@trilliumlane.org to be added as a member.' }, 404);
+    return json({ error: 'Email not found. Contact hoa@trilliumlane.org to be added as a member.' }, 404);
   }
 
-  const name = member?.name || 'there';
+  const name = isSpouse ? (member?.spouse_name || 'there') : (member?.name || 'there');
   const code = String(Math.floor(100000 + Math.random() * 900000));
 
   // Store OTP in KV (10 min TTL)
@@ -175,20 +195,29 @@ async function handleLogout(request, env) {
 // GET /api/me
 async function handleMe(request, env, email) {
   const members = await getMembers(env);
-  const m = members.find(m => m.email.toLowerCase() === email);
-  if (!m) {
+  const found = findHousehold(members, email);
+  if (!found) {
     if (email === SUPER_ADMIN.toLowerCase()) {
-      return json({ name: 'Bruce Conklin', email, address: '', phone: '', payment_status: 'current', payment_method: 'check', is_admin: true, show_in_directory: false });
+      return json({ name: 'Bruce Conklin', email, address: '', phone: '', payment_status: 'current', payment_method: 'check', is_admin: true, show_in_directory: false, is_spouse: false, spouse_name: '', spouse_email: '' });
     }
     return json({ error: 'Member not found' }, 404);
   }
+  const { idx, isSpouse } = found;
+  const m = members[idx];
   return json({
-    name: m.name, email: m.email,
-    address: m.address || '', phone: m.phone || '',
+    name: isSpouse ? (m.spouse_name || m.name) : m.name,
+    email,
+    address: m.address || '',
+    phone: m.phone || '',
     payment_status: m.payment_status,
     payment_method: m.payment_method,
     is_admin: m.is_admin === true || email === SUPER_ADMIN.toLowerCase(),
     show_in_directory: m.show_in_directory === true,
+    is_spouse: isSpouse,
+    // Only expose spouse fields to the primary account holder
+    spouse_name: isSpouse ? undefined : (m.spouse_name || ''),
+    spouse_email: isSpouse ? undefined : (m.spouse_email || ''),
+    // stripe_email is never exposed to the client
   });
 }
 
@@ -196,17 +225,41 @@ async function handleMe(request, env, email) {
 async function handleProfile(request, env, email) {
   if (request.method !== 'PATCH') return json({ error: 'Method not allowed' }, 405);
   const members = await getMembers(env);
-  const idx = members.findIndex(m => m.email.toLowerCase() === email);
-  if (idx === -1) return json({ error: 'Member not found' }, 404);
+  const found = findHousehold(members, email);
+  if (!found) return json({ error: 'Member not found' }, 404);
+  const { idx, isSpouse } = found;
   const body = await request.json();
-  ['name', 'address', 'phone'].forEach(f => {
+
+  // "name" always refers to the logged-in person's own display name
+  if (body.name !== undefined) {
+    if (isSpouse) {
+      members[idx].spouse_name = String(body.name).trim();
+    } else {
+      members[idx].name = String(body.name).trim();
+    }
+  }
+
+  // Shared household fields (both primary and spouse can update)
+  ['address', 'phone'].forEach(f => {
     if (body[f] !== undefined) members[idx][f] = String(body[f]).trim();
   });
   if (body.show_in_directory !== undefined) {
     members[idx].show_in_directory = body.show_in_directory === true;
   }
+
+  // Only the primary account holder can set spouse info; stripe_email is never writable here
+  if (!isSpouse) {
+    if (body.spouse_name !== undefined) members[idx].spouse_name = String(body.spouse_name).trim();
+    if (body.spouse_email !== undefined) {
+      const se = String(body.spouse_email).toLowerCase().trim();
+      if (se) members[idx].spouse_email = se;
+      else delete members[idx].spouse_email;
+    }
+  }
+
   await env.HOA_DATA.put('members', JSON.stringify(members));
-  return json({ ok: true, name: members[idx].name, address: members[idx].address, phone: members[idx].phone, show_in_directory: members[idx].show_in_directory === true });
+  const displayName = isSpouse ? members[idx].spouse_name : members[idx].name;
+  return json({ ok: true, name: displayName });
 }
 
 // GET /api/members
@@ -279,9 +332,15 @@ async function handleAdminBudget(request, env, email) {
 async function handleStripePortal(request, env, email) {
   if (!env.STRIPE_SECRET_KEY) return json({ error: 'Server misconfiguration' }, 500);
 
-  // Find the Stripe customer by email
+  // Resolve the stripe_email for this household (works for both primary and spouse logins)
+  const members = await getMembers(env);
+  const found = findHousehold(members, email);
+  const household = found ? members[found.idx] : null;
+  const stripeEmail = household?.stripe_email || household?.email || email;
+
+  // Find the Stripe customer by stripe_email
   const searchRes = await fetch(
-    `https://api.stripe.com/v1/customers/search?query=email:'${encodeURIComponent(email)}'`,
+    `https://api.stripe.com/v1/customers/search?query=email:'${encodeURIComponent(stripeEmail)}'`,
     { headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` } }
   );
   if (!searchRes.ok) return json({ error: 'Could not look up subscription' }, 500);
@@ -344,12 +403,16 @@ async function handleStripeWebhook(request, env) {
       const email = session.customer_details?.email?.toLowerCase();
       if (!email) break;
       const paymentMethod = session.amount_total === 24000 ? 'autopay_annual' : 'autopay_monthly';
-      const idx = members.findIndex(m => m.email.toLowerCase() === email);
+      // Match by primary email, spouse email, or previously stored stripe_email
+      let idx = members.findIndex(m => m.email.toLowerCase() === email);
+      if (idx === -1) idx = members.findIndex(m => m.spouse_email && m.spouse_email.toLowerCase() === email);
+      if (idx === -1) idx = members.findIndex(m => m.stripe_email && m.stripe_email.toLowerCase() === email);
       if (idx !== -1) {
         members[idx].payment_status = 'current';
         members[idx].payment_method = paymentMethod;
+        members[idx].stripe_email = email; // lock in the Stripe email for portal use
       } else {
-        members.push({ name: session.customer_details?.name || '', email, address: '', phone: '', payment_status: 'current', payment_method: paymentMethod, is_admin: false });
+        members.push({ name: session.customer_details?.name || '', email, stripe_email: email, address: '', phone: '', payment_status: 'current', payment_method: paymentMethod, is_admin: false });
       }
       await env.HOA_DATA.put('members', JSON.stringify(members));
       break;
@@ -360,9 +423,12 @@ async function handleStripeWebhook(request, env) {
       const email = invoice.customer_email?.toLowerCase();
       if (!email) break;
       const priceId = invoice.lines?.data?.[0]?.price?.id;
-      const idx = members.findIndex(m => m.email.toLowerCase() === email);
+      let idx = members.findIndex(m => m.email.toLowerCase() === email);
+      if (idx === -1) idx = members.findIndex(m => m.spouse_email && m.spouse_email.toLowerCase() === email);
+      if (idx === -1) idx = members.findIndex(m => m.stripe_email && m.stripe_email.toLowerCase() === email);
       if (idx !== -1) {
         members[idx].payment_status = 'current';
+        members[idx].stripe_email = email;
         if (priceId === PRICE_MONTHLY) members[idx].payment_method = 'autopay_monthly';
         if (priceId === PRICE_YEARLY)  members[idx].payment_method = 'autopay_annual';
         await env.HOA_DATA.put('members', JSON.stringify(members));
@@ -374,7 +440,9 @@ async function handleStripeWebhook(request, env) {
       if (!invoice.subscription) break;
       const email = invoice.customer_email?.toLowerCase();
       if (!email) break;
-      const idx = members.findIndex(m => m.email.toLowerCase() === email);
+      let idx = members.findIndex(m => m.email.toLowerCase() === email);
+      if (idx === -1) idx = members.findIndex(m => m.spouse_email && m.spouse_email.toLowerCase() === email);
+      if (idx === -1) idx = members.findIndex(m => m.stripe_email && m.stripe_email.toLowerCase() === email);
       if (idx !== -1) {
         members[idx].payment_status = 'past_due';
         await env.HOA_DATA.put('members', JSON.stringify(members));
