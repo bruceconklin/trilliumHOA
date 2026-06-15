@@ -418,7 +418,8 @@
       tbody.innerHTML = '<tr><td colspan="8" style="color:#888">No members yet.</td></tr>';
       return;
     }
-    tbody.innerHTML = members.map((m, i) => `
+    tbody.innerHTML = members.map((m, i) => {
+      const primaryRow = `
       <tr>
         <td>${m.name}</td>
         <td>${m.email}</td>
@@ -432,8 +433,28 @@
           <button class="btn btn-secondary btn-sm" onclick="editMember(${i})">Edit</button>
           <button class="btn btn-danger btn-sm" onclick="deleteMember(${i})">Remove</button>
         </td>
-      </tr>
-    `).join('');
+      </tr>`;
+
+      const spouseRow = (m.spouse_name || m.spouse_email) ? `
+      <tr style="background:#f5faf7;">
+        <td style="padding-left:1.5rem;color:#555;">
+          <span style="color:#2d5a3d;margin-right:0.35rem;">↳</span>${m.spouse_name || '<em style="color:#aaa">No name</em>'}
+          <span style="display:inline-block;margin-left:0.4rem;font-size:0.7rem;background:#e0f0e8;color:#2d5a3d;border-radius:3px;padding:1px 5px;vertical-align:middle;font-weight:600;letter-spacing:0.03em;">FAMILY</span>
+        </td>
+        <td style="color:#555;">${m.spouse_email || '—'}</td>
+        <td>${m.payment_status === 'current'
+          ? '<span class="badge badge-current">Current</span>'
+          : '<span class="badge badge-past-due">Past Due</span>'}</td>
+        <td>${methodLabel[m.payment_method] || m.payment_method || '—'}</td>
+        <td>${m.spouse_show_in_directory ? '<span class="badge badge-current">Visible</span>' : '<span style="color:#aaa;font-size:0.85rem;">Hidden</span>'}</td>
+        <td>${m.spouse_is_admin ? '<span class="badge badge-admin">Admin</span>' : '—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-secondary btn-sm" onclick="editMember(${i})" title="Edit primary member to update family member details">Edit Primary</button>
+        </td>
+      </tr>` : '';
+
+      return primaryRow + spouseRow;
+    }).join('');
   }
 
   function editMember(i) {
