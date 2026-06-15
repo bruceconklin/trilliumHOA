@@ -212,11 +212,13 @@ async function handleMe(request, env, email) {
     payment_status: m.payment_status,
     payment_method: m.payment_method,
     is_admin: m.is_admin === true || email === SUPER_ADMIN.toLowerCase(),
-    show_in_directory: m.show_in_directory === true,
+    // For spouse login, show_in_directory reflects their own directory pref
+    show_in_directory: isSpouse ? (m.spouse_show_in_directory === true) : (m.show_in_directory === true),
     is_spouse: isSpouse,
     // Only expose spouse fields to the primary account holder
     spouse_name: isSpouse ? undefined : (m.spouse_name || ''),
     spouse_email: isSpouse ? undefined : (m.spouse_email || ''),
+    spouse_show_in_directory: isSpouse ? undefined : (m.spouse_show_in_directory === true),
     // stripe_email is never exposed to the client
   });
 }
@@ -243,17 +245,33 @@ async function handleProfile(request, env, email) {
   ['address', 'phone'].forEach(f => {
     if (body[f] !== undefined) members[idx][f] = String(body[f]).trim();
   });
+  // show_in_directory controls each person's own entry
   if (body.show_in_directory !== undefined) {
-    members[idx].show_in_directory = body.show_in_directory === true;
+    if (isSpouse) {
+      members[idx].spouse_show_in_directory = body.show_in_directory === true;
+    } else {
+      members[idx].show_in_directory = body.show_in_directory === true;
+    }
   }
 
   // Only the primary account holder can set spouse info; stripe_email is never writable here
   if (!isSpouse) {
-    if (body.spouse_name !== undefined) members[idx].spouse_name = String(body.spouse_name).trim();
+    if (body.spouse_name !== undefined) {
+      const sn = String(body.spouse_name).trim();
+      if (sn) members[idx].spouse_name = sn; else delete members[idx].spouse_name;
+    }
     if (body.spouse_email !== undefined) {
       const se = String(body.spouse_email).toLowerCase().trim();
-      if (se) members[idx].spouse_email = se;
-      else delete members[idx].spouse_email;
+      if (se) members[idx].spouse_email = se; else delete members[idx].spouse_email;
+    }
+    if (body.spouse_show_in_directory !== undefined) {
+      members[idx].spouse_show_in_directory = body.spouse_show_in_directory === true;
+    }
+    // removeSpouse flag wipes all spouse fields at once
+    if (body.remove_spouse === true) {
+      delete members[idx].spouse_name;
+      delete members[idx].spouse_email;
+      delete members[idx].spouse_show_in_directory;
     }
   }
 
@@ -266,12 +284,32 @@ async function handleProfile(request, env, email) {
 async function handleMembers(request, env, email) {
   const members = await getMembers(env);
   const admin = isAdmin(email, members);
-  const visible = admin ? members : members.filter(m => m.show_in_directory === true);
-  return json(visible.map(m => ({
-    name: m.name, email: m.email,
-    address: m.address || '', phone: m.phone || '',
-    ...(admin && !m.show_in_directory ? { hidden_from_directory: true } : {}),
-  })));
+  const rows = [];
+
+  for (const m of members) {
+    // Primary member row
+    if (admin || m.show_in_directory === true) {
+      rows.push({
+        name: m.name, email: m.email,
+        address: m.address || '', phone: m.phone || '',
+        ...(admin && !m.show_in_directory ? { hidden_from_directory: true } : {}),
+      });
+    }
+    // Spouse row — only if spouse has a name
+    if (m.spouse_name) {
+      if (admin || m.spouse_show_in_directory === true) {
+        rows.push({
+          name: m.spouse_name, email: m.spouse_email || '',
+          address: m.address || '', phone: m.phone || '',
+          ...(admin && !m.spouse_show_in_directory ? { hidden_from_directory: true } : {}),
+        });
+      }
+    }
+  }
+
+  // Sort by address
+  rows.sort((a, b) => (a.address || '').localeCompare(b.address || ''));
+  return json(rows);
 }
 
 // GET /api/newsletters

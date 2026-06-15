@@ -359,7 +359,6 @@
       <h3>Family Member / Co-occupant</h3>
       <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;line-height:1.5">
         Add a partner or spouse so they can log in and manage this account — including updating contact info and managing billing.
-        Leave the email blank to remove their access.
       </p>
       <div class="form-grid">
         <div class="form-field">
@@ -369,10 +368,17 @@
         <div class="form-field">
           <label>Email</label>
           <input type="email" id="p-spouse-email" placeholder="partner@example.com" />
-          <p class="form-note">Used to log in. Leave blank to remove their access.</p>
+          <p class="form-note">Used to log in.</p>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="saveSpouse()">Save Family Member</button>
+      <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-size:0.95rem;margin-bottom:1rem;">
+        <input type="checkbox" id="p-spouse-show-directory" style="width:auto;transform:scale(1.3);accent-color:#2d5a3d;cursor:pointer;" />
+        Show their contact info in the neighborhood directory
+      </label>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="saveSpouse()">Save Family Member</button>
+        <button class="btn btn-secondary" id="remove-spouse-btn" onclick="removeSpouse()" style="display:none;">Remove Family Member</button>
+      </div>
       <div class="success-msg" id="spouse-success" style="display:none;margin-top:0.75rem;">Family member saved!</div>
     </div>
   </div>
@@ -494,7 +500,7 @@
           document.getElementById('dir-loading').textContent = 'No members have chosen to share their contact info yet.';
           document.getElementById('dir-table').style.display = 'none';
         } else {
-          members.sort((a, b) => a.name.localeCompare(b.name)).forEach(m => {
+          members.sort((a, b) => (a.address || '').localeCompare(b.address || '')).forEach(m => {
             const tr = document.createElement('tr');
             const hiddenBadge = m.hidden_from_directory
               ? ' <span style="font-size:0.72rem;background:#f0e6f4;color:#7a3fa0;padding:0.1rem 0.4rem;border-radius:10px;vertical-align:middle;">hidden</span>'
@@ -548,6 +554,10 @@
           document.getElementById('spouse-section').style.display = 'block';
           document.getElementById('p-spouse-name').value = me.spouse_name || '';
           document.getElementById('p-spouse-email').value = me.spouse_email || '';
+          document.getElementById('p-spouse-show-directory').checked = me.spouse_show_in_directory === true;
+          if (me.spouse_name || me.spouse_email) {
+            document.getElementById('remove-spouse-btn').style.display = 'inline-block';
+          }
         }
       } else if (res.status === 404) {
         document.getElementById('greeting').textContent = 'Welcome';
@@ -636,18 +646,45 @@
   async function saveSpouse() {
     const spouse_name = document.getElementById('p-spouse-name').value.trim();
     const spouse_email = document.getElementById('p-spouse-email').value.trim();
+    const spouse_show_in_directory = document.getElementById('p-spouse-show-directory').checked;
     try {
       const res = await fetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spouse_name, spouse_email }),
+        body: JSON.stringify({ spouse_name, spouse_email, spouse_show_in_directory }),
       });
       if (res.ok) {
         const el = document.getElementById('spouse-success');
         el.style.display = 'block';
         setTimeout(() => el.style.display = 'none', 3000);
+        if (spouse_name || spouse_email) {
+          document.getElementById('remove-spouse-btn').style.display = 'inline-block';
+        }
+        loadDirectory();
       } else {
         alert('Could not save. Please try again.');
+      }
+    } catch (e) {
+      alert('Network error. Please try again.');
+    }
+  }
+
+  async function removeSpouse() {
+    if (!confirm('Remove family member? They will lose portal access.')) return;
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ remove_spouse: true }),
+      });
+      if (res.ok) {
+        document.getElementById('p-spouse-name').value = '';
+        document.getElementById('p-spouse-email').value = '';
+        document.getElementById('p-spouse-show-directory').checked = false;
+        document.getElementById('remove-spouse-btn').style.display = 'none';
+        loadDirectory();
+      } else {
+        alert('Could not remove. Please try again.');
       }
     } catch (e) {
       alert('Network error. Please try again.');
