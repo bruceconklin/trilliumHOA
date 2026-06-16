@@ -168,6 +168,33 @@
       color: #2d5a3d;
     }
 
+    .post-card {
+      background: #fff;
+      border: 1px solid #d4e6da;
+      border-radius: 4px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .post-card .post-date {
+      font-size: 0.8rem;
+      color: #999;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      margin-bottom: 0.35rem;
+    }
+
+    .post-card h3 {
+      font-size: 1.1rem;
+      color: #1e3f2b;
+      margin-bottom: 0.6rem;
+    }
+
+    .post-card .post-body {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
     footer {
       text-align: center;
       padding: 2rem;
@@ -189,6 +216,7 @@
 <nav>
   <a href="#about">About</a>
   <a href="#dues">Dues</a>
+  <a href="#news">News</a>
   <a href="#board">Board</a>
   <a href="/members/">Members Portal</a>
 </nav>
@@ -219,7 +247,6 @@
     <div class="dues-box">
       <h3>2026 Dues — $240 per household, payable once a year or monthly with online billing.</h3>
       <ul>
-        <li>Property tax on the Meadow</li>
         <li>Liability insurance</li>
         <li>Mowing &amp; landscaping</li>
         <li>Minor repairs and upkeep</li>
@@ -234,6 +261,13 @@
       Prefer to pay by check? Yearly payment by check should be made out to Trillium Lane HOA, and delivered to the President or Treasurer.
       Receipts available on request.
     </p>
+  </section>
+
+  <section id="news">
+    <h2>News &amp; Updates</h2>
+    <div id="news-loading" style="color:#888;font-style:italic;">Loading…</div>
+    <div id="news-list"></div>
+    <p id="news-empty" style="display:none;color:#888;">No updates yet.</p>
   </section>
 
   <section id="board">
@@ -275,5 +309,32 @@
   &copy; 2026 Trillium Lane Homeowners Association &mdash; Mill Valley, CA &mdash; Est. 1971
 </footer>
 
+<script>
+  (async () => {
+    try {
+      const res = await fetch('/api/posts');
+      const posts = res.ok ? await res.json() : [];
+      document.getElementById('news-loading').style.display = 'none';
+      if (!posts.length) {
+        document.getElementById('news-empty').style.display = 'block';
+        return;
+      }
+      const container = document.getElementById('news-list');
+      posts.forEach(p => {
+        const date = new Date(p.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        const card = document.createElement('div');
+        card.className = 'post-card';
+        card.innerHTML = `
+          <div class="post-date">${date}</div>
+          <h3>${p.title.replace(/</g,'&lt;')}</h3>
+          <div class="post-body">${p.content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        `;
+        container.appendChild(card);
+      });
+    } catch(e) {
+      document.getElementById('news-loading').textContent = '';
+    }
+  })();
+</script>
 </body>
 </html>

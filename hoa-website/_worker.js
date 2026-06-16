@@ -223,6 +223,8 @@ async function handleMe(request, env, email) {
     spouse_email: isSpouse ? undefined : (m.spouse_email || ''),
     spouse_phone: isSpouse ? undefined : (m.spouse_phone || ''),
     spouse_show_in_directory: isSpouse ? undefined : (m.spouse_show_in_directory === true),
+    // email_updates: undefined/true = subscribed, false = opted out
+    email_updates: isSpouse ? (m.spouse_email_updates !== false) : (m.email_updates !== false),
     // stripe_email is never exposed to the client
   });
 }
@@ -261,6 +263,14 @@ async function handleProfile(request, env, email) {
       members[idx].spouse_show_in_directory = body.show_in_directory === true;
     } else {
       members[idx].show_in_directory = body.show_in_directory === true;
+    }
+  }
+  // email_updates: each person controls their own subscription
+  if (body.email_updates !== undefined) {
+    if (isSpouse) {
+      members[idx].spouse_email_updates = body.email_updates === true;
+    } else {
+      members[idx].email_updates = body.email_updates === true;
     }
   }
 
@@ -336,6 +346,99 @@ async function handleNewsletters(request, env) {
 async function handleBudget(request, env) {
   const data = await env.HOA_DATA.get('budget') || '[]';
   return new Response(data, { headers: { 'Content-Type': 'application/json' } });
+}
+
+// GET /api/posts — public, no auth required
+async function handlePosts(request, env) {
+  const data = await env.HOA_DATA.get('posts') || '[]';
+  return new Response(data, { headers: { 'Content-Type': 'application/json' } });
+}
+
+// GET/POST/DELETE /api/admin/posts — admin only
+async function handleAdminPosts(request, env, email) {
+  const members = await getMembers(env);
+  if (!isAdmin(email, members)) return json({ error: 'Unauthorized' }, 403);
+
+  if (request.method === 'GET') {
+    const data = await env.HOA_DATA.get('posts') || '[]';
+    return new Response(data, { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  if (request.method === 'POST') {
+    const body = await request.json();
+    const title = (body.title || '').trim();
+    const content = (body.content || '').trim();
+    if (!title || !content) return json({ error: 'Title and content required' }, 400);
+
+    const posts = JSON.parse(await env.HOA_DATA.get('posts') || '[]');
+    const post = {
+      id: crypto.randomUUID(),
+      title,
+      content,
+      created_at: new Date().toISOString(),
+    };
+    posts.unshift(post); // newest first
+    await env.HOA_DATA.put('posts', JSON.stringify(posts));
+
+    // Collect subscribed recipients (undefined = subscribed by default)
+    const recipients = [];
+    for (const m of members) {
+      if (m.email_updates !== false) {
+        recipients.push({ email: m.email, name: m.name });
+      }
+      if (m.spouse_email && m.spouse_email_updates !== false) {
+        recipients.push({ email: m.spouse_email, name: m.spouse_name || m.name });
+      }
+    }
+
+    // Send notification emails
+    const dateStr = new Date(post.created_at).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    });
+    const safeContent = content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    await Promise.allSettled(recipients.map(r =>
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: HOA_FROM_EMAIL,
+          to: r.email,
+          subject: `Trillium Lane HOA: ${post.title}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#2c2c2c">
+              <div style="background:#2d5a3d;padding:1.5rem;text-align:center">
+                <h1 style="color:#fff;font-size:1.2rem;margin:0">Trillium Lane HOA</h1>
+              </div>
+              <div style="padding:2rem;background:#fff;border:1px solid #d4e6da">
+                <p style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">${dateStr}</p>
+                <h2 style="color:#1e3f2b;font-size:1.3rem;margin-bottom:1.25rem;font-family:Georgia,serif">${post.title}</h2>
+                <div style="line-height:1.75;color:#333">${safeContent}</div>
+                <div style="margin-top:2rem;padding-top:1rem;border-top:1px solid #eee">
+                  <a href="https://trilliumlane.org/members/" style="color:#2d5a3d;font-size:0.9rem;">View in Members Portal →</a>
+                </div>
+              </div>
+              <p style="text-align:center;color:#aaa;font-size:0.75rem;padding:1rem 1rem 0">
+                Trillium Lane HOA &middot; Mill Valley, CA<br>
+                <a href="https://trilliumlane.org/members/" style="color:#aaa;">Manage email preferences in your member portal</a>
+              </p>
+            </div>
+          `,
+        }),
+      })
+    ));
+
+    return json({ ok: true, post, sent: recipients.length });
+  }
+
+  if (request.method === 'DELETE') {
+    const { id } = await request.json();
+    if (!id) return json({ error: 'id required' }, 400);
+    const posts = JSON.parse(await env.HOA_DATA.get('posts') || '[]');
+    await env.HOA_DATA.put('posts', JSON.stringify(posts.filter(p => p.id !== id)));
+    return json({ ok: true });
+  }
+
+  return json({ error: 'Method not allowed' }, 405);
 }
 
 // GET/PUT /api/admin/members
@@ -527,6 +630,9 @@ export default {
     // ── Stripe webhook (has its own auth via signature) ──
     if (path === '/api/stripe-webhook') return handleStripeWebhook(request, env);
 
+    // ── Public posts feed (no auth required) ──
+    if (path === '/api/posts' && request.method === 'GET') return handlePosts(request, env);
+
     // ── Protected API endpoints ──
     if (path.startsWith('/api/')) {
       const email = await getEmailFromSession(request, env);
@@ -541,6 +647,7 @@ export default {
       if (path === '/api/admin/members')     return handleAdminMembers(request, env, email);
       if (path === '/api/admin/newsletters') return handleAdminNewsletters(request, env, email);
       if (path === '/api/admin/budget')      return handleAdminBudget(request, env, email);
+      if (path === '/api/admin/posts')       return handleAdminPosts(request, env, email);
       return json({ error: 'Not found' }, 404);
     }
 

@@ -199,6 +199,7 @@
   <main>
     <div class="tabs">
       <button class="tab-btn active" data-tab="members">Members</button>
+      <button class="tab-btn" data-tab="posts">Posts</button>
       <button class="tab-btn" data-tab="newsletters">Newsletters</button>
       <button class="tab-btn" data-tab="budget">Budget</button>
     </div>
@@ -303,6 +304,37 @@
       </div>
     </div>
 
+    <!-- ===== POSTS TAB ===== -->
+    <div class="tab-panel" id="tab-posts">
+      <div class="card">
+        <h2>New Post</h2>
+        <div style="margin-bottom:0.75rem;">
+          <label>Title *</label>
+          <input type="text" id="post-title" placeholder="Meadow workday this Saturday" />
+        </div>
+        <div style="margin-bottom:0.75rem;">
+          <label>Content *</label>
+          <textarea id="post-content" rows="6" style="width:100%;padding:0.5rem 0.75rem;border:1px solid #ccc;border-radius:4px;font-size:0.9rem;font-family:inherit;resize:vertical;" placeholder="Write your update here…"></textarea>
+        </div>
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="createPost()">Publish &amp; Notify Members</button>
+        </div>
+        <p style="font-size:0.8rem;color:#888;margin-top:0.75rem;">Posting will email all members who have email notifications enabled.</p>
+      </div>
+
+      <div class="card">
+        <h2>Published Posts</h2>
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Title</th><th>Preview</th><th></th></tr>
+          </thead>
+          <tbody id="posts-tbody">
+            <tr><td colspan="4" style="color:#888">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ===== NEWSLETTERS TAB ===== -->
     <div class="tab-panel" id="tab-newsletters">
       <div class="card">
@@ -387,7 +419,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  let members = [], newsletters = [], budget = [];
+  let members = [], newsletters = [], budget = [], posts = [];
 
   // ---- Tabs ----
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -688,14 +720,16 @@
     document.getElementById('app').style.display = 'block';
 
     try {
-      const [mRes, nRes, bRes] = await Promise.all([
+      const [mRes, nRes, bRes, pRes] = await Promise.all([
         fetch('/api/admin/members'),
         fetch('/api/admin/newsletters'),
         fetch('/api/admin/budget'),
+        fetch('/api/admin/posts'),
       ]);
       if (mRes.ok) members = await mRes.json();
       if (nRes.ok) newsletters = await nRes.json();
       if (bRes.ok) budget = await bRes.json();
+      if (pRes.ok) posts = await pRes.json();
     } catch (e) {
       showToast('Could not load data.', true);
     }
@@ -703,6 +737,75 @@
     renderMembers();
     renderNewsletters();
     renderBudget();
+    renderPosts();
+  }
+
+  // ======== POSTS ========
+
+  function renderPosts() {
+    const tbody = document.getElementById('posts-tbody');
+    if (!posts.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:#888">No posts yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = posts.map(p => {
+      const date = new Date(p.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      const preview = p.content.replace(/</g,'&lt;').slice(0, 80) + (p.content.length > 80 ? '…' : '');
+      return `
+        <tr>
+          <td style="white-space:nowrap;color:#888;font-size:0.85rem;">${date}</td>
+          <td><strong>${p.title.replace(/</g,'&lt;')}</strong></td>
+          <td style="color:#777;font-size:0.85rem;">${preview}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deletePost('${p.id}')">Delete</button></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function createPost() {
+    const title = document.getElementById('post-title').value.trim();
+    const content = document.getElementById('post-content').value.trim();
+    if (!title || !content) { showToast('Title and content are required.', true); return; }
+
+    try {
+      const res = await fetch('/api/admin/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        posts.unshift(data.post);
+        renderPosts();
+        document.getElementById('post-title').value = '';
+        document.getElementById('post-content').value = '';
+        showToast(`Post published! Emailed ${data.sent} member(s).`);
+      } else {
+        showToast(data.error || 'Could not publish post.', true);
+      }
+    } catch (e) {
+      showToast('Network error.', true);
+    }
+  }
+
+  async function deletePost(id) {
+    if (!confirm('Delete this post? This cannot be undone.')) return;
+    try {
+      const res = await fetch('/api/admin/posts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        posts = posts.filter(p => p.id !== id);
+        renderPosts();
+        showToast('Post deleted.');
+      } else {
+        showToast('Could not delete post.', true);
+      }
+    } catch (e) {
+      showToast('Network error.', true);
+    }
   }
 
   async function logout() {
