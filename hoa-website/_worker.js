@@ -223,6 +223,7 @@ async function handleMe(request, env, email) {
     spouse_email: isSpouse ? undefined : (m.spouse_email || ''),
     spouse_phone: isSpouse ? undefined : (m.spouse_phone || ''),
     spouse_show_in_directory: isSpouse ? undefined : (m.spouse_show_in_directory === true),
+    spouse_email_updates: isSpouse ? undefined : (m.spouse_email_updates !== false),
     // email_updates: undefined/true = subscribed, false = opted out
     email_updates: isSpouse ? (m.spouse_email_updates !== false) : (m.email_updates !== false),
     // stripe_email is never exposed to the client
@@ -290,6 +291,9 @@ async function handleProfile(request, env, email) {
     }
     if (body.spouse_show_in_directory !== undefined) {
       members[idx].spouse_show_in_directory = body.spouse_show_in_directory === true;
+    }
+    if (body.spouse_email_updates !== undefined) {
+      members[idx].spouse_email_updates = body.spouse_email_updates === true;
     }
     // removeSpouse flag wipes all spouse fields at once
     if (body.remove_spouse === true) {

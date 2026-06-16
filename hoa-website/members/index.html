@@ -331,6 +331,8 @@
 
   <!-- ===== MY ACCOUNT TAB ===== -->
   <div class="tab-panel active" id="tab-account">
+
+    <!-- Section 1: Your Profile -->
     <div class="profile-section">
       <h3>Edit Your Profile</h3>
       <div class="form-grid">
@@ -352,43 +354,24 @@
           <input type="tel" id="p-phone" placeholder="415-555-1234" />
         </div>
       </div>
-      <button class="btn btn-primary" onclick="saveProfile()">Save Changes</button>
-      <div class="success-msg" id="profile-success">Profile updated!</div>
-    </div>
-
-    <div class="profile-section" style="margin-top:1.5rem;border-top:1px solid #e8f0ea;padding-top:1.5rem;">
-      <h3>Neighborhood Directory</h3>
-      <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;line-height:1.5">
-        Choose whether your contact info (name, address, phone, email) is visible to other members in the directory.
-        Admins can always see everyone regardless of this setting.
-      </p>
-      <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-size:0.95rem;">
-        <input type="checkbox" id="p-show-directory" style="width:auto;transform:scale(1.3);accent-color:#2d5a3d;cursor:pointer;" />
-        Show my contact info to neighbors
-      </label>
+      <div style="border-top:1px solid #edf4ef;padding-top:1rem;margin-top:0.5rem;display:flex;flex-direction:column;gap:0.6rem;">
+        <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-size:0.95rem;">
+          <input type="checkbox" id="p-show-directory" style="width:auto;transform:scale(1.3);accent-color:#2d5a3d;cursor:pointer;" />
+          Show my contact info in the neighborhood directory
+        </label>
+        <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-size:0.95rem;">
+          <input type="checkbox" id="p-email-updates" style="width:auto;transform:scale(1.3);accent-color:#2d5a3d;cursor:pointer;" />
+          Send me email notifications for new HOA posts
+        </label>
+      </div>
       <div style="margin-top:1rem;">
-        <button class="btn btn-primary" style="width:auto;padding:0.5rem 1.25rem;font-size:0.9rem;" onclick="saveDirectoryPref()">Save Preference</button>
-        <span id="dir-pref-success" style="display:none;margin-left:1rem;color:#1a5c33;font-size:0.85rem;">Saved!</span>
+        <button class="btn btn-primary" onclick="saveProfile()">Save Changes</button>
+        <span id="profile-success" style="display:none;margin-left:1rem;color:#1a5c33;font-size:0.85rem;">Saved!</span>
       </div>
     </div>
 
-    <div class="profile-section" style="margin-top:1.5rem;border-top:1px solid #e8f0ea;padding-top:1.5rem;">
-      <h3>Email Updates</h3>
-      <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;line-height:1.5">
-        Receive an email when the HOA posts a new update or announcement.
-      </p>
-      <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-size:0.95rem;">
-        <input type="checkbox" id="p-email-updates" style="width:auto;transform:scale(1.3);accent-color:#2d5a3d;cursor:pointer;" />
-        Send me email notifications for new posts
-      </label>
-      <div style="margin-top:1rem;">
-        <button class="btn btn-primary" style="width:auto;padding:0.5rem 1.25rem;font-size:0.9rem;" onclick="saveEmailUpdatesPref()">Save Preference</button>
-        <span id="email-updates-success" style="display:none;margin-left:1rem;color:#1a5c33;font-size:0.85rem;">Saved!</span>
-      </div>
-    </div>
-
-    <!-- Family member section — only shown to primary account holder -->
-    <div class="profile-section" id="spouse-section" style="display:none;margin-top:1.5rem;border-top:1px solid #e8f0ea;padding-top:1.5rem;">
+    <!-- Section 2: Family Member — only shown to primary account holder -->
+    <div class="profile-section" id="spouse-section" style="display:none;margin-top:1.5rem;">
       <h3>Family Member / Co-occupant</h3>
       <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;line-height:1.5">
         Add a partner or spouse so they can log in and manage this account — including updating contact info and managing billing.
@@ -408,16 +391,23 @@
           <input type="tel" id="p-spouse-phone" placeholder="415-555-1234" />
         </div>
       </div>
-      <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-size:0.95rem;margin-bottom:1rem;">
-        <input type="checkbox" id="p-spouse-show-directory" style="width:auto;transform:scale(1.3);accent-color:#2d5a3d;cursor:pointer;" />
-        Show their contact info in the neighborhood directory
-      </label>
+      <div style="border-top:1px solid #edf4ef;padding-top:1rem;margin-top:0.5rem;display:flex;flex-direction:column;gap:0.6rem;margin-bottom:1rem;">
+        <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-size:0.95rem;">
+          <input type="checkbox" id="p-spouse-show-directory" style="width:auto;transform:scale(1.3);accent-color:#2d5a3d;cursor:pointer;" />
+          Show their contact info in the neighborhood directory
+        </label>
+        <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-size:0.95rem;">
+          <input type="checkbox" id="p-spouse-email-updates" style="width:auto;transform:scale(1.3);accent-color:#2d5a3d;cursor:pointer;" />
+          Send them email notifications for new HOA posts
+        </label>
+      </div>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
         <button class="btn btn-primary" onclick="saveSpouse()">Save Family Member</button>
         <button class="btn btn-secondary" id="remove-spouse-btn" onclick="removeSpouse()" style="display:none;">Remove Family Member</button>
       </div>
       <div class="success-msg" id="spouse-success" style="display:none;margin-top:0.75rem;">Family member saved!</div>
     </div>
+
   </div>
 
   <!-- ===== UPDATES TAB ===== -->
@@ -506,6 +496,8 @@
       name: document.getElementById('p-name').value.trim(),
       address: document.getElementById('p-address').value.trim(),
       phone: document.getElementById('p-phone').value.trim(),
+      show_in_directory: document.getElementById('p-show-directory').checked,
+      email_updates: document.getElementById('p-email-updates').checked,
     };
 
     if (!body.name) { alert('Name is required.'); return; }
@@ -518,9 +510,8 @@
       });
       if (res.ok) {
         const el = document.getElementById('profile-success');
-        el.style.display = 'block';
+        el.style.display = 'inline';
         setTimeout(() => el.style.display = 'none', 3000);
-        // Refresh greeting and directory to reflect name/address changes
         document.getElementById('greeting').textContent = 'Welcome, ' + body.name;
         loadDirectory();
       } else {
@@ -601,6 +592,7 @@
           document.getElementById('p-spouse-email').value = me.spouse_email || '';
           document.getElementById('p-spouse-phone').value = me.spouse_phone || '';
           document.getElementById('p-spouse-show-directory').checked = me.spouse_show_in_directory === true;
+          document.getElementById('p-spouse-email-updates').checked = me.spouse_email_updates !== false;
           if (me.spouse_name || me.spouse_email) {
             document.getElementById('remove-spouse-btn').style.display = 'inline-block';
           }
@@ -697,11 +689,12 @@
     const spouse_email = document.getElementById('p-spouse-email').value.trim();
     const spouse_phone = document.getElementById('p-spouse-phone').value.trim();
     const spouse_show_in_directory = document.getElementById('p-spouse-show-directory').checked;
+    const spouse_email_updates = document.getElementById('p-spouse-email-updates').checked;
     try {
       const res = await fetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spouse_name, spouse_email, spouse_phone, spouse_show_in_directory }),
+        body: JSON.stringify({ spouse_name, spouse_email, spouse_phone, spouse_show_in_directory, spouse_email_updates }),
       });
       if (res.ok) {
         const el = document.getElementById('spouse-success');
@@ -769,34 +762,6 @@
     }
   }
 
-  async function saveEmailUpdatesPref() {
-    const email_updates = document.getElementById('p-email-updates').checked;
-    const res = await fetch('/api/profile', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email_updates }),
-    });
-    if (res.ok) {
-      const msg = document.getElementById('email-updates-success');
-      msg.style.display = 'inline';
-      setTimeout(() => msg.style.display = 'none', 2500);
-    }
-  }
-
-  async function saveDirectoryPref() {
-    const show_in_directory = document.getElementById('p-show-directory').checked;
-    const res = await fetch('/api/profile', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ show_in_directory }),
-    });
-    if (res.ok) {
-      const msg = document.getElementById('dir-pref-success');
-      msg.style.display = 'inline';
-      setTimeout(() => msg.style.display = 'none', 2500);
-      loadDirectory();
-    }
-  }
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
